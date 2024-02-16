@@ -1,4 +1,4 @@
-package database
+package naive
 
 import (
 	"bytes"
@@ -7,30 +7,33 @@ import (
 )
 
 type node struct {
-	Key *[]byte // Should/Can we make this a fixed size?
-	Tokens int // TODO Revise
+	Key *[]byte // Should/Can we make this a fixed size? And why am I using a pointer?
+	Height int
+	Tokens int  // TODO Revise
 	Time string // TODO Revise
 	Left  *node
 	Right *node
-	Lock  *sync.Mutex
+	Lock  *sync.Mutex // Synchronizes access to the 'values'
+	BalanceLock *sync.Mutex 
 }
 
 type DB struct {
 	AVL  *node
-	Lock *sync.Mutex
+
+	// TBH this is probably only useful if we're taking a snapshot of the tree
+	AVLWG   sync.WaitGroup    // Tracks threads accessing the AVL Tree
+    AVLRWMutex  sync.RWMutex  // Controls access to the AVL Tree
 }
 
 func NewDatabase() *DB {
 	return &DB{
 		AVL: &node{
 			Key: nil,
-			Lock: &sync.Mutex{}, // TODO might need a different primitive here, like a wait group
+			Lock: &sync.Mutex{},
 		},
+		AVLWG: sync.WaitGroup{},
+		AVLRWMutex: sync.RWMutex{}, 
 	}
-}
-
-func (db *DB) balance() {
-	// TODO Implement
 }
 
 func (db *DB) Search(key []byte) error {
@@ -38,6 +41,10 @@ func (db *DB) Search(key []byte) error {
 	return nil
 }
 
+// Pre Order Traverses the tree and prints out the keys
+func (db *DB) Print() {
+
+}
 
 /*
 TODO:
@@ -136,7 +143,15 @@ func (n *node) __insert(key []byte, refill int, capacity int) error {
 
 
 func (db *DB) Insert(key []byte, refill int, capacity int) error {
+	// TODO rethink this AVL tree locking
+	//defer db.AVLWG.Done()
+	
+	//db.AVLWG.Add(1)
+	//db.AVLRWMutex.RLock()
+	
 	err := db.AVL.__insert(key, refill, capacity)
+	
+	//db.AVLRWMutex.RUnlock()
 
 	return err
 }
