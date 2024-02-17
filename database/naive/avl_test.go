@@ -20,9 +20,7 @@ func TestAVL(t *testing.T) {
 		avl.Insert([]byte(k), nil)
 	}
 
-	result := []string{}
-	avl.getKeys(&result)
-
+	result := avl.GetKeys()
 	sort.Strings(keys)
 
 	if len(keys) != len(result) {

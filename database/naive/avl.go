@@ -24,13 +24,33 @@ func (tree *AVL) Insert(key []byte, data *Data) {
 	tree.Root = tree.Root.insert(key, data)
 }
 
-func (node *Node) inorder() {
-	// Traverse man!
-	/*
-		Traverse the left subtree, i.e., call Inorder(left->subtree)
-		Visit the root.
-		Traverse the right subtree, i.e., call Inorder(right->subtree)
-	*/
+// TODO: this is ugly
+func (tree *AVL) GetKeys() []string {
+	keys := [][]byte{}
+	tree.Root.inorder(keys)
+
+	result := []string{}
+	for _, k := range keys {
+		result = append(result, string(k))
+	}
+
+	return result
+}
+
+// TODO: this is ugly
+func (node *Node) inorder(keys [][]byte) [][]byte {
+
+	if node.Left != nil {
+		keys = node.Left.inorder(keys)
+	}
+
+	keys = append(keys, node.Key)
+
+	if node.Right != nil {
+		keys = node.Right.inorder(keys)
+	}
+
+	return keys
 }
 
 func (node *Node) getHeight() int {
