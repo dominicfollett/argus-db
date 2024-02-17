@@ -24,6 +24,15 @@ func (tree *AVL) Insert(key []byte, data *Data) {
 	tree.Root = tree.Root.insert(key, data)
 }
 
+func (node *Node) inorder() {
+	// Traverse man!
+	/*
+		Traverse the left subtree, i.e., call Inorder(left->subtree)
+		Visit the root.
+		Traverse the right subtree, i.e., call Inorder(right->subtree)
+	*/
+}
+
 func (node *Node) getHeight() int {
 	if node == nil {
 		return 0
