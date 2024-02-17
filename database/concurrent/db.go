@@ -47,13 +47,21 @@ func (node *Node) getHeight() int {
 	return node.Height
 }
 
+func (node *Node) getBalanceFactor() int {
+	if node == nil {
+		return 0
+	}
+
+	return node.Left.getHeight() - node.Right.getHeight()
+}
+
 func (root *Node) insert(key []byte, data *Data) *Node  {
 	
 	if root == nil {
 		return &Node{
 			Key: key,
 			Data: data,
-			Height: 1,
+			Height: 0, // Leaves have a height of 0
 		}
 	}
 
@@ -75,11 +83,15 @@ func (root *Node) insert(key []byte, data *Data) *Node  {
 		root.Left = root.Left.insert(key, data)
 	}
 
-	// Set height
+	// Update height
 	root.Height = 1 + max(root.Left.getHeight(), root.Right.getHeight())
 
-	balance := root.Left.getHeight() - root.Right.getHeight() 
+	balanceFactor := root.Left.getHeight() - root.Right.getHeight() 
 
+	// What are the conditions under which balanceFactor itself would not lead to a balancing operation?
+	//  -1 =< bf <= 1
+	// If it exceeds this are we always guaranteed to have a left AND right child?
+	// Or does the sign tell us that a left or right child might exist
 
 	/*
 	leftCMP := bytes.Compare(key, root.Left.Key)
