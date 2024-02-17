@@ -55,6 +55,26 @@ func (node *Node) getBalanceFactor() int {
 	return node.Left.getHeight() - node.Right.getHeight()
 }
 
+func (A * Node) rotateRight() *Node {
+	B := A.Left
+	tmp := B.Right
+
+	B.Right = A
+	A.Left = tmp
+
+	return B
+}
+
+func (A *Node) rotateLeft() *Node {
+	C := A.Right
+	tmp := C.Left
+
+	C.Left = A
+	A.Right = tmp
+
+	return C
+}
+
 func (root *Node) insert(key []byte, data *Data) *Node  {
 	
 	if root == nil {
@@ -88,22 +108,37 @@ func (root *Node) insert(key []byte, data *Data) *Node  {
 
 	balanceFactor := root.Left.getHeight() - root.Right.getHeight() 
 
-	// What are the conditions under which balanceFactor itself would not lead to a balancing operation?
+	// Conditions under which balanceFactor itself would not lead to a balancing operation:
 	//  -1 =< bf <= 1
-	// If it exceeds this are we always guaranteed to have a left AND right child?
-	// Or does the sign tell us that a left or right child might exist
-
-	/*
-	leftCMP := bytes.Compare(key, root.Left.Key)
-	rightCMP := bytes.Compare(key, root.Right.Key)
-
-	// Left Left Case
-	if balance > 1 && leftCMP == -1 { // key < root.Left.Key
-		// return rightRotate(root)
+	if -1 <= balanceFactor && balanceFactor <= 1 {
+		return root
 	}
 
-	// ...
-	*/
+	if balanceFactor == 2 {
+		// Left-Left ==> Right Rotation
+		if root.Left.getBalanceFactor() == 1 || root.Left.getBalanceFactor() == 0 {
+			root = root.rotateRight()
+		}
 
-	return nil
+		// Left-right ==> Left Rotation followed by Right Rotation
+		if root.Left.getBalanceFactor() == -1 {
+			root.Left = root.Left.rotateLeft()
+			root = root.rotateRight()
+		}
+	}
+
+	if balanceFactor == -2 {
+		// Right-Right ==> Left Rotation
+		if root.Right.getBalanceFactor() == -1 || root.Right.getBalanceFactor() == 0 {
+			root = root.rotateLeft()
+		}
+
+		// Right-Left ==> Right Rotation followed by Left Rotation
+		if root.Right.getBalanceFactor() == 1 {
+			root.Right = root.Right.rotateRight()
+			root = root.rotateLeft()
+		}
+	}
+
+	return root
 }
