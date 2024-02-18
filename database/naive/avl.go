@@ -26,8 +26,7 @@ func (tree *AVL) Insert(key []byte, data *Data) {
 
 // TODO: this is ugly
 func (tree *AVL) GetKeys() []string {
-	keys := [][]byte{}
-	tree.Root.inorder(keys)
+	keys := tree.Root.inorder([][]byte{})
 
 	result := []string{}
 	for _, k := range keys {
@@ -40,14 +39,14 @@ func (tree *AVL) GetKeys() []string {
 // TODO: this is ugly
 func (node *Node) inorder(keys [][]byte) [][]byte {
 
-	if node.Left != nil {
-		keys = node.Left.inorder(keys)
+	if node.Right != nil {
+		keys = node.Right.inorder(keys)
 	}
 
 	keys = append(keys, node.Key)
 
-	if node.Right != nil {
-		keys = node.Right.inorder(keys)
+	if node.Left != nil {
+		keys = node.Left.inorder(keys)
 	}
 
 	return keys

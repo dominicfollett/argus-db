@@ -24,12 +24,12 @@ func TestAVL(t *testing.T) {
 	sort.Strings(keys)
 
 	if len(keys) != len(result) {
-		t.Errorf("Expected the same length: %d, got %d", len(keys), len(result))
+		t.Errorf("Expected and result slices differ in length; expected: %d, got: %d", len(keys), len(result))
 	}
 
-	for i, k := range keys {
-		if k != result[i] {
-			t.Errorf("Expected: %d, got %d", len(keys), len(result))
+	for i, expectedKey := range keys {
+		if expectedKey != string(result[i]) {
+			t.Errorf("Key mismatch at index %d; expected: %s, got: %s", i, expectedKey, result[i])
 		}
 	}
 }
