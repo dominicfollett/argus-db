@@ -1,24 +1,24 @@
 package naive
 
 import (
-	"math/rand"
 	"sort"
 	"testing"
 )
 
 func TestAVL(t *testing.T) {
 
-	keys := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+	keys := []string{"T", "X", "G", "L", "E", "Q", "M", "H", "O", "I", "B", "Z", "A", "V", "S", "R", "K", "P", "C", "D", "U", "F", "N", "W", "Y", "J"}
 	avl := NewAVL()
 
-	// Shuffle the keys randomly
-	rand.Shuffle(len(keys), func(i, j int) {
-		keys[i], keys[j] = keys[j], keys[i]
-	})
-
 	for _, k := range(keys) {
-		avl.Insert([]byte(k), nil)
+		avl.Insert(k, nil)
 	}
+
+	// Add some duplicates
+	avl.Insert("T", nil)
+	avl.Insert("D", nil)
+	avl.Insert("N", nil)
+	avl.Insert("P", nil)
 
 	result := avl.GetKeys()
 	sort.Strings(keys)
