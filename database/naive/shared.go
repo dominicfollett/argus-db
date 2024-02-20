@@ -4,7 +4,6 @@ import "sync"
 
 // Shared Data structure stores the Token Bucket particulars
 type Data struct {
-	Lock 	sync.Mutex
 	Tokens  int
 	Time    string
 	// and ?
@@ -13,6 +12,7 @@ type Data struct {
 // Node represents a single node within a BST.
 // It contains the key, associated data, height of the node, and pointers to the left and right child nodes.
 type Node struct {
+	Lock   sync.Mutex
 	Key    string // Key is the unique identifier for the node.
 	Data   *Data  // Data points to the associated data of the node.
 	Height int    // Height is the height of the node within the tree.

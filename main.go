@@ -115,6 +115,7 @@ func NewServer(logger *Logger, service *Service) http.Handler {
 	return handler
 }
 
+// TODO revisit this
 func main() {
 	println("Hello, World!")
 
@@ -146,7 +147,7 @@ func main() {
 	go func(){
 		defer wg.Done()
 
-		// What does this do?
+		// TODO What does this do?
 		<-ctx.Done()
 		logger.log("Shutting down the server...")
 

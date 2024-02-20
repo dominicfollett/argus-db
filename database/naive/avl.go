@@ -2,6 +2,8 @@
 // It includes functionalities to insert new nodes and retrieve keys in sorted order.
 package naive
 
+import "sync"
+
 // AVL represents an AVL tree with a pointer to the root node.
 type AVL struct {
 	Root *Node // Root points to the root node of the AVL tree.
@@ -83,6 +85,7 @@ func (root *Node) insertAVL(key string, data *Data) *Node  {
 	if root == nil {
 		return &Node{
 			Key: key,
+			Lock: sync.Mutex{},
 			Data: data,
 			Height: 0, // Leaves have a height of 0
 		}
