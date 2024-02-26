@@ -7,7 +7,7 @@ BINARY := argusdb
 all: test build
 
 test:
-	go test ./...
+	go test -race ./...
 
 build:
 	GOARCH=$(ARCH) go build -o $(OUT_DIR)/$(BINARY) ./main.go

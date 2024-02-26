@@ -54,9 +54,7 @@ func (tree *BST) Insert(key string, tokens int, capacity int) {
 	tree.Root.insertBST(&tree.RootLock, key, tokens, capacity)
 }
 
-// TODO Go's race detector (go run -race) can be helpful for identifying race conditions.
-// CAN hand-over-hand locking in a BST be done recursively?
-func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) /*allowed int ??*/ {
+func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) {
 
 	// Try and obtain this node's lock
 	node.Lock.Lock()
@@ -67,13 +65,13 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 	// Critical section
 	if node.Key == key {
 
-		// TODO: Update Data etc
+		// TODO: Update Data & implement token bucket
 		node.Data.Time = time.Now().String()
 		node.Data.Tokens = tokens
 
 		// Release this node's lock because we're done with it
 		node.Lock.Unlock()
-		return /*, allowed*/
+		return
 	}
 
 	if node.Key > key{
@@ -85,7 +83,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 					Tokens: tokens,
 					Time: time.Now().String(),
 				},
-				Height: 0, // Leaves have a height of 0
+				Height: 0,
 			}
 
 			node.Lock.Unlock()
@@ -113,20 +111,4 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 			node.Left.insertBST(&node.Lock, key, tokens, capacity)
 		}
 	}
-
-	// TODO I need to figure out how to calculate the correct balance factor
-	// Do we need to wrap this in a critical section? Probably
-	// node.Lock.Lock()
-	// This works because subtree heights will only increase over time
-	// node.Height = max(node.Height, 1 + max(node.Left.getHeight(), node.Right.getHeight()))
-	// node.Lock.Unlock()
-
-	// balanceFactor := node.getBalanceFactor()
-
-	// TODO remove
-	// println(balanceFactor)
-
-	// TODO Update global balance factor -- atomic cmpSwap?
-
-	return
 }

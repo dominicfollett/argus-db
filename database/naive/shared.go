@@ -1,6 +1,8 @@
 package naive
 
-import "sync"
+import (
+	"sync"
+)
 
 // Shared Data structure stores the Token Bucket particulars
 type Data struct {

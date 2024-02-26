@@ -68,9 +68,6 @@ func TestBSTConcurrentInsertsWithDuplicates(t *testing.T) {
 
 	wg.Wait() // Wait for all goroutines to complete
 
-	// It's challenging to predict the expected size if your BST implementation
-	// does not allow duplicate keys because duplicates will be ignored.
-	// Hence, we check if the actual size is less than or equal to the expected size with duplicates.
 	maxPossibleSize := numInserts*concurrencyLevel - (concurrencyLevel-1)*(numInserts/duplicateEvery)
 	actualSize := len(bst.GetKeys())
 	if actualSize > maxPossibleSize {
