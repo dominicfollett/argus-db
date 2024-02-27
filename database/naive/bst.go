@@ -5,25 +5,26 @@ package naive
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // BST represents a BST tree with a pointer to the root node.
 type BST struct {
-	Root *Node // Root points to the root node of the AVL tree.
-	RootLock sync.Mutex
+	root *Node // Root points to the root node of the AVL tree.
+	rootLock sync.Mutex
 }
 
 // NewAVL creates and returns a new instance of an AVL tree.
 func NewBST() *BST {
 	return &BST{
-		RootLock: sync.Mutex{},
+		rootLock: sync.Mutex{},
 	}
 }
 
 // GetKeys retrieves all keys from the BST tree in sorted descending order.
 func (tree *BST) GetKeys() []string {
-	keys := tree.Root.inorderDesc([]string{})
+	keys := tree.root.inorderDesc([]string{})
 	return keys
 }
 
@@ -32,83 +33,99 @@ func (tree *BST) GetKeys() []string {
 // Access to the *Data struct will be synchronized with a mutex
 func (tree *BST) Insert(key string, tokens int, capacity int) {
 
-	tree.RootLock.Lock()
+	tree.rootLock.Lock()
 
-	if tree.Root == nil {
+	if tree.root == nil {
 		// Create the node here
 		node := &Node{
-			Key: key,
-			Lock: sync.Mutex{},
-			Data: &Data{ // TODO
-				Tokens: tokens,
-				Time: time.Now().String(),
+			key: key,
+			lock: sync.Mutex{},
+			data: &Data{ // TODO
+				tokens: tokens,
+				time: time.Now().String(),
 			},
-			Height: 0, // Leaves have a height of 0
+			height: atomic.Int32{}, // Leaves have a height of 0
 		}
-		tree.Root = node
-		tree.RootLock.Unlock()
+		tree.root = node
+		tree.rootLock.Unlock()
 		return
 	}
 
 	// tree.RootLock will be released through hand-over-hand locking
-	tree.Root.insertBST(&tree.RootLock, key, tokens, capacity)
+	tree.root.insertBST(&tree.rootLock, key, tokens, capacity)
 }
 
 func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) {
 
 	// Try and obtain this node's lock
-	node.Lock.Lock()
+	node.lock.Lock()
 
 	// Good now release the prior lock
 	parentLock.Unlock()
 
 	// Critical section
-	if node.Key == key {
+	if node.key == key {
 
 		// TODO: Update Data & implement token bucket
-		node.Data.Time = time.Now().String()
-		node.Data.Tokens = tokens
+		node.data.time = time.Now().String()
+		node.data.tokens = tokens
 
 		// Release this node's lock because we're done with it
-		node.Lock.Unlock()
+		node.lock.Unlock()
 		return
 	}
 
-	if node.Key > key{
-		if node.Right == nil {
-			node.Right = &Node{
-				Key: key,
-				Lock: sync.Mutex{},
-				Data: &Data{ // TODO
-					Tokens: tokens,
-					Time: time.Now().String(),
+	if node.key > key{
+		if node.right == nil {
+			node.right = &Node{
+				key: key,
+				lock: sync.Mutex{},
+				data: &Data{ // TODO
+					tokens: tokens,
+					time: time.Now().String(),
 				},
-				Height: 0,
+				height: atomic.Int32{},
 			}
-
-			node.Lock.Unlock()
+			node.lock.Unlock()
 			return
 		} else {
-			node.Right.insertBST(&node.Lock, key, tokens, capacity)
+			node.right.insertBST(&node.lock, key, tokens, capacity)
 		}
 	}
 
-	if node.Key < key {
-		if node.Left == nil {
-			node.Left = &Node{
-				Key: key,
-				Lock: sync.Mutex{},
-				Data: &Data{ // TODO
-					Tokens: tokens,
-					Time: time.Now().String(),
+	if node.key < key {
+		if node.left == nil {
+			node.left = &Node{
+				key: key,
+				lock: sync.Mutex{},
+				data: &Data{ // TODO
+					tokens: tokens,
+					time: time.Now().String(),
 				},
-				Height: 0, // Leaves have a height of 0
+				height: atomic.Int32{}, // Leaves have a height of 0
 			}
 
-			node.Lock.Unlock()
+			node.lock.Unlock()
 			return
 		} else {
-			node.Left.insertBST(&node.Lock, key, tokens, capacity)
+			node.left.insertBST(&node.lock, key, tokens, capacity)
 		}
 	}
+
+	// Update the Node's height using atomic operations
+	old_height := node.getHeight()
+	new_height := 1 + max(node.left.getHeight(), node.right.getHeight())
+
+	if new_height > old_height{
+		if !node.height.CompareAndSwap(old_height, new_height) {
+
+			// Something wrote to height before this thread could
+			old_height := node.getHeight() // atomic read the latest height
+			if new_height > old_height {
+				node.height.CompareAndSwap(old_height, new_height)
+			}
+		}
+	}
+
+	//balance_factor := node.left.getHeight() - node.right.getHeight()
 }

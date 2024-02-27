@@ -2,24 +2,25 @@ package naive
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 // Shared Data structure stores the Token Bucket particulars
 type Data struct {
-	Tokens  int
-	Time    string
+	tokens  int
+	time    string
 	// and ?
 }
 
 // Node represents a single node within a BST.
 // It contains the key, associated data, height of the node, and pointers to the left and right child nodes.
 type Node struct {
-	Lock   sync.Mutex
-	Key    string // Key is the unique identifier for the node.
-	Data   *Data  // Data points to the associated data of the node.
-	Height int    // Height is the height of the node within the tree.
-	Left   *Node  // Left points to the left child node.
-	Right  *Node  // Right points to the right child node.
+	lock   sync.Mutex
+	key    string // Key is the unique identifier for the node.
+	data   *Data  // Data points to the associated data of the node.
+	height atomic.Int32    // Height is the height of the node within the tree.
+	left   *Node  // Left points to the left child node.
+	right  *Node  // Right points to the right child node.
 }
 
 // The message that is passed over the channel
@@ -34,28 +35,28 @@ func (node *Node) inorderDesc(keys []string) []string {
 		return keys
 	}
 
-	keys = node.Right.inorderDesc(keys)
-	keys = append(keys, node.Key)
-	keys = node.Left.inorderDesc(keys)
+	keys = node.right.inorderDesc(keys)
+	keys = append(keys, node.key)
+	keys = node.left.inorderDesc(keys)
 
 	return keys
 }
 
 // getHeight returns the height of the node.
 // If the node is nil, it returns 0, indicating the height of a non-existent node.
-func (node *Node) getHeight() int {
+func (node *Node) getHeight() int32 {
 	if node == nil {
 		return 0
 	}
-	return node.Height
+	return node.height.Load()
 }
 
 // getBalanceFactor calculates and returns the balance factor of the node.
 // The balance factor is the difference in heights between the left and right subtrees.
-func (node *Node) getBalanceFactor() int {
+func (node *Node) getBalanceFactor() int32 {
 	if node == nil {
 		return 0
 	}
 
-	return node.Left.getHeight() - node.Right.getHeight()
+	return node.left.getHeight() - node.right.getHeight()
 }
