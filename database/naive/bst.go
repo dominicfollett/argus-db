@@ -51,11 +51,11 @@ func (tree *BST) Insert(key string, tokens int, capacity int) {
 		return
 	}
 
-	// tree.RootLock will be released through hand-over-hand locking
+	// tree.rootLock will be released through hand-over-hand locking
 	tree.root.insertBST(&tree.rootLock, key, tokens, capacity)
 }
 
-func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) {
+func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) int32 {
 
 	// Try and obtain this node's lock
 	node.lock.Lock()
@@ -70,10 +70,15 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 		node.data.time = time.Now().String()
 		node.data.tokens = tokens
 
+		height := node.getHeight()
+
 		// Release this node's lock because we're done with it
 		node.lock.Unlock()
-		return
+		return height
 	}
+
+	var left_height int32
+	var right_height int32
 
 	if node.key > key{
 		if node.right == nil {
@@ -87,9 +92,12 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 				height: atomic.Int32{},
 			}
 			node.lock.Unlock()
-			return
+			return 0
 		} else {
-			node.right.insertBST(&node.lock, key, tokens, capacity)
+			// retrieve the left node height and get right node height from recursive call??
+			left_height = node.left.getHeight()
+			// node.lock will be released in the recusrive call
+			right_height = node.right.insertBST(&node.lock, key, tokens, capacity)
 		}
 	}
 
@@ -106,15 +114,18 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 			}
 
 			node.lock.Unlock()
-			return
+			return 0
 		} else {
-			node.left.insertBST(&node.lock, key, tokens, capacity)
+			// retrieve the right node height and get left node height from recursive call??
+			right_height = node.right.getHeight()
+			// node.lock will be released in the recusrive call
+			left_height = node.left.insertBST(&node.lock, key, tokens, capacity)
 		}
 	}
 
 	// Update the Node's height using atomic operations
 	old_height := node.getHeight()
-	new_height := 1 + max(node.left.getHeight(), node.right.getHeight())
+	new_height := 1 + max(left_height, right_height)
 
 	if new_height > old_height{
 		if !node.height.CompareAndSwap(old_height, new_height) {
@@ -127,5 +138,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 		}
 	}
 
-	//balance_factor := node.left.getHeight() - node.right.getHeight()
+	//balance_factor := left_height - right_height
+
+	return node.getHeight()
 }
