@@ -61,6 +61,7 @@ func (node *Node) getBalanceFactor() int32 {
 	return node.left.getHeight() - node.right.getHeight()
 }
 
+// absInt32 returns the magnitude of the given scalar
 func absInt32(x int32) int32 {
 	if x < 0 {
 		return -x

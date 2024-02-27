@@ -75,34 +75,48 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 		node.data.time = time.Now().String()
 		node.data.tokens = tokens
 
-		height := node.getHeight()
+		// Update the height of this node in case there are discrepancies
+		old_height := node.getHeight()
+		new_height := 1 + max(node.left.getHeight(), node.right.getHeight())
+
+		for new_height > old_height{
+
+			if node.height.CompareAndSwap(old_height, new_height){
+				break
+			}
+
+			// Something wrote to height before this thread could
+			old_height = node.getHeight() // atomic read the latest height
+		}
 
 		// Release this node's lock because we're done with it
 		node.lock.Unlock()
-		return height
+		return node.getHeight()
 	}
 
 	var left_height int32
 	var right_height int32
 
-	if node.key > key{
-		if node.right == nil {
-			node.right = newBSTNode(key, tokens)
-			node.lock.Unlock()
-			return 0
-		} else {
-			// retrieve the left node height and get right node height from recursive call??
-			left_height = node.left.getHeight()
-			// node.lock will be released in the recusrive call
-			right_height = node.right.insertBST(&node.lock, key, tokens, capacity)
-		}
-	}
-
-	if node.key < key {
+	if key < node.key{
 		if node.left == nil {
 			node.left = newBSTNode(key, tokens)
+
+			// We have to update this node's height because we've just performed an insertion
+			old_height := node.getHeight()
+			new_height := 1 + max(0, node.right.getHeight())
+
+			for new_height > old_height{
+
+				if node.height.CompareAndSwap(old_height, new_height){
+					break
+				}
+
+				// Something wrote to height before this thread could
+				old_height = node.getHeight() // atomic read the latest height
+			}
+
 			node.lock.Unlock()
-			return 0
+			return node.getHeight() // or just new_height?
 		} else {
 			// retrieve the right node height and get left node height from recursive call??
 			right_height = node.right.getHeight()
@@ -111,6 +125,34 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 		}
 	}
 
+	if key > node.key {
+		if node.right == nil {
+			node.right = newBSTNode(key, tokens)
+
+			old_height := node.getHeight()
+			new_height := 1 + max(node.left.getHeight(), 0)
+			
+			for new_height > old_height{
+
+				if node.height.CompareAndSwap(old_height, new_height){
+					break
+				}
+
+				// Something wrote to height before this thread could
+				old_height = node.getHeight() // atomic read the latest height
+			}
+
+			node.lock.Unlock()
+			return node.getHeight() // or just new_height?
+		} else {
+			// retrieve the left node height and get right node height from recursive call??
+			left_height = node.left.getHeight()
+			// node.lock will be released in the recusrive call
+			right_height = node.right.insertBST(&node.lock, key, tokens, capacity)
+		}
+	}
+
+	// TODO: This section is equivalent to node.height.Store(new_height) ??? How??? 
 	// Update the Node's height using atomic operations
 	old_height := node.getHeight()
 	new_height := 1 + max(left_height, right_height)
