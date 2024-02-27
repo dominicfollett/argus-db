@@ -60,3 +60,10 @@ func (node *Node) getBalanceFactor() int32 {
 
 	return node.left.getHeight() - node.right.getHeight()
 }
+
+func absInt32(x int32) int32 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}

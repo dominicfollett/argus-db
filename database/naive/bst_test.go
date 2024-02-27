@@ -34,9 +34,6 @@ func TestBSTConcurrentInserts(t *testing.T) {
 	if actualSize != expectedSize {
 		t.Errorf("Expected BST size to be %d, got %d", expectedSize, actualSize)
 	}
-
-	// Additional checks can be made here to ensure the structure of the BST is correct
-	// and that the data within the nodes is as expected.
 }
 
 func TestBSTConcurrentInsertsWithDuplicates(t *testing.T) {
@@ -73,7 +70,59 @@ func TestBSTConcurrentInsertsWithDuplicates(t *testing.T) {
 	if actualSize > maxPossibleSize {
 		t.Errorf("Expected BST size to be less than or equal to %d, got %d", maxPossibleSize, actualSize)
 	}
+}
 
-	// Additional checks can be made here to ensure the structure of the BST is correct
-	// and that the data within the nodes is as expected, including handling of duplicates.
+func (node *Node) heightTestHelper(t *testing.T) int32 {
+	if node == nil {
+		return 0
+	}
+
+	left_height := node.left.heightTestHelper(t)
+
+	right_height := node.right.heightTestHelper(t)
+
+	acutal_height := 1 + max(left_height, right_height)
+
+	if absInt32(acutal_height - node.getHeight()) > 2 {
+		t.Errorf(
+			"Expected height: %d and actual height: %d difference over the threshold! ",
+			acutal_height,
+			node.getHeight(),
+		)
+	}
+
+	return acutal_height
+}
+
+func TestBSTHeightCalulcations(t *testing.T) {
+	bst := NewBST()
+
+	var wg sync.WaitGroup // Use WaitGroup to wait for all goroutines to finish
+	const numInserts = 100  // Number of inserts per goroutine
+	const concurrencyLevel = 100 // Number of goroutines
+	const duplicateEvery = 5 // Insert a duplicate key every 'duplicateEvery' inserts
+
+		// Perform concurrent inserts, including duplicates
+		for i := 0; i < concurrencyLevel; i++ {
+			wg.Add(1)
+			go func(goroutineID int) {
+				defer wg.Done()
+				for j := 0; j < numInserts; j++ {
+					var key string
+					if j%duplicateEvery == 0 {
+						// Generate a duplicate key intentionally
+						key = strconv.Itoa(j)
+					} else {
+						// Generate a unique key
+						key = strconv.Itoa(goroutineID*numInserts + j)
+					}
+					bst.Insert(key, 1, 1) // Dummy tokens and capacity
+				}
+			}(i)
+		}
+	
+		wg.Wait() // Wait for all goroutines to complete
+
+		// Check the height of each node
+		bst.root.heightTestHelper(t)
 }
