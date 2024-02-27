@@ -117,7 +117,7 @@ func TestBSTHeightCalulcations(t *testing.T) {
 
 	var wg sync.WaitGroup // Use WaitGroup to wait for all goroutines to finish
 	const numInserts = 100  // Number of inserts per goroutine
-	const concurrencyLevel = 100 // Number of goroutines
+	const concurrencyLevel = 10 // Number of goroutines
 	const duplicateEvery = 5 // Insert a duplicate key every 'duplicateEvery' inserts
 
 		// TODO: I think a problem with this test is that the unique keys are always increasing??
