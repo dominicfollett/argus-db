@@ -65,10 +65,10 @@ func TestBSTConcurrentInsertsWithDuplicates(t *testing.T) {
 
 	wg.Wait() // Wait for all goroutines to complete
 
-	maxPossibleSize := numInserts*concurrencyLevel - (concurrencyLevel-1)*(numInserts/duplicateEvery)
+	maxPossibleSize := numInserts*concurrencyLevel - ((concurrencyLevel-1)*(numInserts/duplicateEvery))
 	actualSize := len(bst.GetKeys())
-	if actualSize > maxPossibleSize {
-		t.Errorf("Expected BST size to be less than or equal to %d, got %d", maxPossibleSize, actualSize)
+	if actualSize != maxPossibleSize {
+		t.Errorf("Expected BST size to be equal to %d, got %d", maxPossibleSize, actualSize)
 	}
 }
 
@@ -78,20 +78,19 @@ func (node *Node) heightTestHelper(t *testing.T) int32 {
 	}
 
 	left_height := node.left.heightTestHelper(t)
-
 	right_height := node.right.heightTestHelper(t)
 
-	acutal_height := 1 + max(left_height, right_height)
+	expected_height := 1 + max(left_height, right_height)
 
-	if absInt32(acutal_height - node.getHeight()) > 2 {
+	if absInt32(expected_height - node.getHeight()) > 1 {
 		t.Errorf(
-			"Expected height: %d and actual height: %d difference over the threshold! ",
-			acutal_height,
+			"Difference between expected height: %d, and actual height: %d, is over the threshold! ",
+			expected_height,
 			node.getHeight(),
 		)
 	}
 
-	return acutal_height
+	return expected_height
 }
 
 func TestBSTHeightCalulcations(t *testing.T) {
@@ -120,8 +119,13 @@ func TestBSTHeightCalulcations(t *testing.T) {
 				}
 			}(i)
 		}
-	
 		wg.Wait() // Wait for all goroutines to complete
+
+		maxPossibleSize := numInserts*concurrencyLevel - ((concurrencyLevel-1)*(numInserts/duplicateEvery))
+		actualSize := len(bst.GetKeys())
+		if actualSize != maxPossibleSize {
+			t.Errorf("Expected BST size to be equal to %d, got %d", maxPossibleSize, actualSize)
+		}
 
 		// Check the height of each node
 		bst.root.heightTestHelper(t)

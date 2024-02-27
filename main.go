@@ -119,7 +119,7 @@ func NewServer(logger *Logger, service *Service) http.Handler {
 func main() {
 	println("Hello, World!")
 
-	// TODO LOL this is so bizarre
+	// TODO LOL this is so bizarre just use SLOG instead
 	logger := newLogger(func(s string) {
 		println(s)
 	})

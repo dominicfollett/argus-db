@@ -37,15 +37,7 @@ func (tree *BST) Insert(key string, tokens int, capacity int) {
 
 	if tree.root == nil {
 		// Create the node here
-		node := &Node{
-			key: key,
-			lock: sync.Mutex{},
-			data: &Data{ // TODO
-				tokens: tokens,
-				time: time.Now().String(),
-			},
-			height: atomic.Int32{}, // Leaves have a height of 0
-		}
+		node := newBSTNode(key, tokens)
 		tree.root = node
 		tree.rootLock.Unlock()
 		return
@@ -53,6 +45,19 @@ func (tree *BST) Insert(key string, tokens int, capacity int) {
 
 	// tree.rootLock will be released through hand-over-hand locking
 	tree.root.insertBST(&tree.rootLock, key, tokens, capacity)
+}
+
+// Helper function
+func newBSTNode(key string, tokens int) *Node {
+	return &Node{
+		key: key,
+		lock: sync.Mutex{},
+		data: &Data{ // TODO
+			tokens: tokens,
+			time: time.Now().String(),
+		},
+		height: atomic.Int32{},
+	}
 }
 
 func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) int32 {
@@ -82,15 +87,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 
 	if node.key > key{
 		if node.right == nil {
-			node.right = &Node{
-				key: key,
-				lock: sync.Mutex{},
-				data: &Data{ // TODO
-					tokens: tokens,
-					time: time.Now().String(),
-				},
-				height: atomic.Int32{},
-			}
+			node.right = newBSTNode(key, tokens)
 			node.lock.Unlock()
 			return 0
 		} else {
@@ -103,16 +100,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 
 	if node.key < key {
 		if node.left == nil {
-			node.left = &Node{
-				key: key,
-				lock: sync.Mutex{},
-				data: &Data{ // TODO
-					tokens: tokens,
-					time: time.Now().String(),
-				},
-				height: atomic.Int32{}, // Leaves have a height of 0
-			}
-
+			node.left = newBSTNode(key, tokens)
 			node.lock.Unlock()
 			return 0
 		} else {
@@ -127,15 +115,15 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 	old_height := node.getHeight()
 	new_height := 1 + max(left_height, right_height)
 
-	if new_height > old_height{
-		if !node.height.CompareAndSwap(old_height, new_height) {
+	// TODO this approach makes no difference, perhaps the other approach would work just fine
+	for new_height > old_height{
 
-			// Something wrote to height before this thread could
-			old_height := node.getHeight() // atomic read the latest height
-			if new_height > old_height {
-				node.height.CompareAndSwap(old_height, new_height)
-			}
+		if node.height.CompareAndSwap(old_height, new_height){
+			break
 		}
+
+		// Something wrote to height before this thread could
+		old_height = node.getHeight() // atomic read the latest height
 	}
 
 	//balance_factor := left_height - right_height
