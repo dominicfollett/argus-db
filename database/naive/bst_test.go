@@ -88,6 +88,8 @@ func (node *Node) heightTestHelper(t *testing.T) int32 {
 			expected_height,
 			node.getHeight(),
 		)
+	} else {
+		//t.Errorf("expected %d, actual: %d", expected_height, node.getHeight())
 	}
 
 	return expected_height
@@ -95,7 +97,7 @@ func (node *Node) heightTestHelper(t *testing.T) int32 {
 
 func (node *Node) heightTestHelperCount(t *testing.T, count int) (int32, int) {
 	if node == nil {
-		return 0, 0
+		return 0, count
 	}
 
 	left_height, c := node.left.heightTestHelperCount(t, count)

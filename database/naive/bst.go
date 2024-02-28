@@ -103,7 +103,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 
 			// We have to update this node's height because we've just performed an insertion
 			old_height := node.getHeight()
-			new_height := 1 + max(0, node.right.getHeight())
+			new_height := 1 + max(1, node.right.getHeight())
 
 			for new_height > old_height{
 				if node.height.CompareAndSwap(old_height, new_height){
@@ -129,7 +129,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 			node.right = newBSTNode(key, tokens)
 
 			old_height := node.getHeight()
-			new_height := 1 + max(node.left.getHeight(), 0)
+			new_height := 1 + max(node.left.getHeight(), 1)
 			
 			for new_height > old_height{
 				if node.height.CompareAndSwap(old_height, new_height){
