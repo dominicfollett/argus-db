@@ -49,7 +49,7 @@ func (tree *BST) Insert(key string, tokens int, capacity int) {
 
 // Helper function
 func newBSTNode(key string, tokens int) *Node {
-	return &Node{
+	node := &Node{
 		key: key,
 		lock: sync.Mutex{},
 		data: &Data{ // TODO
@@ -58,6 +58,9 @@ func newBSTNode(key string, tokens int) *Node {
 		},
 		height: atomic.Int32{},
 	}
+	// TODO: Mind BLOWN
+	node.height.Store(1)
+	return node
 }
 
 func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) int32 {
@@ -103,6 +106,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 
 			// We have to update this node's height because we've just performed an insertion
 			old_height := node.getHeight()
+			// TODO: Assuming the Left Node's height to 1 here makes NO sense
 			new_height := 1 + max(1, node.right.getHeight())
 
 			for new_height > old_height{
@@ -129,6 +133,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 			node.right = newBSTNode(key, tokens)
 
 			old_height := node.getHeight()
+			// TODO: Assuming the Right Node's height to 1 here makes NO sense
 			new_height := 1 + max(node.left.getHeight(), 1)
 			
 			for new_height > old_height{

@@ -88,6 +88,7 @@ func (node *Node) heightTestHelper(t *testing.T) int32 {
 			expected_height,
 			node.getHeight(),
 		)
+		t.Errorf("left: %d, right: %d", left_height, right_height)
 	} else {
 		//t.Errorf("expected %d, actual: %d", expected_height, node.getHeight())
 	}
@@ -158,5 +159,7 @@ func TestBSTHeightCalulcations(t *testing.T) {
 		// However I'd like to understand why it appears that all differences between expected and actual is 2 and not any other number.
 		// Can we prove this? At the very least we'd then know that the heights are be being consistently under estimated and not over estimated.
 		_, count := bst.root.heightTestHelperCount(t, 0)
-		t.Errorf("Total differences %d", count)
+		if count != 0 {
+			t.Errorf("Total differences %d", count)
+		}
 }
