@@ -7,8 +7,8 @@ import (
 
 // Shared Data structure stores the Token Bucket particulars
 type Data struct {
-	tokens  int
-	time    string
+	tokens int
+	time   string
 	// and ?
 }
 
@@ -16,16 +16,16 @@ type Data struct {
 // It contains the key, associated data, height of the node, and pointers to the left and right child nodes.
 type Node struct {
 	lock   sync.Mutex
-	key    string // Key is the unique identifier for the node.
-	data   *Data  // Data points to the associated data of the node.
-	height atomic.Int32    // Height is the height of the node within the tree.
-	left   *Node  // Left points to the left child node.
-	right  *Node  // Right points to the right child node.
+	key    string       // Key is the unique identifier for the node.
+	data   *Data        // Data points to the associated data of the node.
+	height atomic.Int32 // Height is the height of the node within the tree.
+	left   *Node        // Left points to the left child node.
+	right  *Node        // Right points to the right child node.
 }
 
 // The message that is passed over the channel
 type Message struct {
-	Key string
+	Key  string
 	Data *Data
 }
 

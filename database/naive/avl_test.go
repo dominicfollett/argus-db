@@ -13,7 +13,7 @@ func TestAVL(t *testing.T) {
 	keys := []string{"T", "X", "G", "L", "E", "Q", "M", "H", "O", "I", "B", "Z", "A", "V", "S", "R", "K", "P", "C", "D", "U", "F", "N", "W", "Y", "J"}
 	avl := NewAVL()
 
-	for _, k := range(keys) {
+	for _, k := range keys {
 		avl.Insert(k, nil)
 	}
 

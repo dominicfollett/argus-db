@@ -31,15 +31,15 @@ func (tree *AVL) GetKeys() []string {
 
 // rotateRight performs a right rotation on the node.
 // This is used to rebalance the tree in case of a left-heavy imbalance.
-func (A * Node) rotateRight() *Node {
+func (A *Node) rotateRight() *Node {
 	/*
-			 A
-			/ \
-		   B   C
-		  / \
-		 D   E
-		/
- 	  F
+					 A
+					/ \
+				   B   C
+				  / \
+				 D   E
+				/
+		 	  F
 	*/
 
 	B := A.left
@@ -54,13 +54,13 @@ func (A * Node) rotateRight() *Node {
 			A.left.getHeight(),
 			A.right.getHeight(),
 		),
-	) 
+	)
 	B.height.Store(
 		1 + max(
 			B.left.getHeight(),
 			B.right.getHeight(),
 		),
-	) 
+	)
 
 	return B
 }
@@ -69,13 +69,13 @@ func (A * Node) rotateRight() *Node {
 // This is used to rebalance the tree in case of a right-heavy imbalance.
 func (A *Node) rotateLeft() *Node {
 	/*
-		 A
-		/ \
-	   B   C
-		  / \
-		 F   D
-			  \
-			   E
+			 A
+			/ \
+		   B   C
+			  / \
+			 F   D
+				  \
+				   E
 	*/
 
 	C := A.right
@@ -90,26 +90,26 @@ func (A *Node) rotateLeft() *Node {
 			A.left.getHeight(),
 			A.right.getHeight(),
 		),
-	) 
+	)
 	C.height.Store(
 		1 + max(
 			C.left.getHeight(),
 			C.right.getHeight(),
 		),
-	) 
+	)
 
 	return C
 }
 
 // insertAVL adds a new node with the given key and data to the tree rooted at the current node.
 // It ensures the AVL tree properties are maintained by performing necessary rotations.
-func (root *Node) insertAVL(key string, data *Data) *Node  {
-	
+func (root *Node) insertAVL(key string, data *Data) *Node {
+
 	if root == nil {
 		return &Node{
-			key: key,
-			lock: sync.Mutex{},
-			data: data,
+			key:    key,
+			lock:   sync.Mutex{},
+			data:   data,
 			height: atomic.Int32{}, // Leaves have a height of 0
 		}
 	}
@@ -119,7 +119,7 @@ func (root *Node) insertAVL(key string, data *Data) *Node  {
 		return root
 	}
 
-	if root.key > key{
+	if root.key > key {
 		root.right = root.right.insertAVL(key, data)
 	}
 
@@ -134,7 +134,7 @@ func (root *Node) insertAVL(key string, data *Data) *Node  {
 			root.left.getHeight(),
 			root.right.getHeight(),
 		),
-	) 
+	)
 	balanceFactor := root.getBalanceFactor()
 
 	// Conditions under which balanceFactor itself would not lead to a balancing operation:
