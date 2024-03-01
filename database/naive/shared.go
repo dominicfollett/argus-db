@@ -42,7 +42,7 @@ func (node *Node) inorderDesc(keys []string) []string {
 	return keys
 }
 
-// getHeight returns the height of the node.
+// getHeight atomically returns the height of the node.
 // If the node is nil, it returns 0, indicating the height of a non-existent node.
 func (node *Node) getHeight() int32 {
 	if node == nil {
@@ -51,7 +51,7 @@ func (node *Node) getHeight() int32 {
 	return node.height.Load()
 }
 
-// getBalanceFactor calculates and returns the balance factor of the node.
+// getBalanceFactor atomically calculates and returns the balance factor of the node.
 // The balance factor is the difference in heights between the left and right subtrees.
 func (node *Node) getBalanceFactor() int32 {
 	if node == nil {

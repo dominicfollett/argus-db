@@ -10,8 +10,8 @@ import (
 
 // BST represents a BST tree with a pointer to the root node.
 type BST struct {
-	root     *Node // Root points to the root node of the AVL tree.
-	rootLock sync.Mutex
+	root     *Node      // Root points to the root node of the AVL tree.
+	rootLock sync.Mutex // Lock for the root node
 }
 
 // NewAVL creates and returns a new instance of an AVL tree.
@@ -39,8 +39,7 @@ func newBSTNode(key string, tokens int) *Node {
 		height: atomic.Int32{},
 	}
 
-	// TODO: Mind BLOWN
-	node.height.Store(1)
+	node.height.Store(0) // (1) -- mind blown!
 	return node
 }
 
@@ -52,7 +51,6 @@ func (tree *BST) Insert(key string, tokens int, capacity int) {
 	tree.rootLock.Lock()
 
 	if tree.root == nil {
-		// Create the node here
 		node := newBSTNode(key, tokens)
 		tree.root = node
 		tree.rootLock.Unlock()
@@ -87,6 +85,9 @@ func (node *Node) updateHeight(left_height int32, right_height int32) {
 	}
 }
 
+// insertBST performs a recursive search and when applicable insertion of a new node with the given key and data to the BST tree.
+// This method is thread-safe and uses hand-over-hand locking to ensure that the tree is properly locked during the insertion process.
+// The method returns the height of the node after the insertion.
 func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) int32 {
 
 	// Try and obtain this node's lock
@@ -103,7 +104,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 		node.data.tokens = tokens
 
 		// Might as well update the height of this node
-		// TODO: does this make any difference?
+		// TODO: does this make any difference? Yes when we default leaves' height to 0
 		node.updateHeight(-1, -1)
 
 		// Release this node's lock because we're done with it
@@ -120,12 +121,11 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 
 			// We have to update this node's height because we've just performed an insertion
 			// TODO: Assuming the Left Node's height to 1 here makes NO sense
-			node.updateHeight(1, -1)
+			node.updateHeight(0, -1) // (1, -1) ?????
 
 			node.lock.Unlock()
 			return node.getHeight() // or just new_height?
 		} else {
-			// retrieve the right node height and get left node height from recursive call??
 			right_height = node.right.getHeight()
 			// node.lock will be released in the recusrive call
 			left_height = node.left.insertBST(&node.lock, key, tokens, capacity)
@@ -138,12 +138,11 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 
 			// We have to update this node's height because we've just performed an insertion
 			// TODO: Assuming the Right Node's height to 1 here makes NO sense
-			node.updateHeight(-1, 1)
+			node.updateHeight(-1, 0) // (-1, 1) ?????
 
 			node.lock.Unlock()
 			return node.getHeight() // or just new_height?
 		} else {
-			// retrieve the left node height and get right node height from recursive call??
 			left_height = node.left.getHeight()
 			// node.lock will be released in the recusrive call
 			right_height = node.right.insertBST(&node.lock, key, tokens, capacity)
