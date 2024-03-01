@@ -76,10 +76,10 @@ func TestBSTConcurrentInsertsWithDuplicates(t *testing.T) {
 
 func (node *Node) heightTestHelper(t *testing.T) int32 {
 	if node == nil {
-		if node.getHeight() != 0 {
-			t.Errorf("Expected height of nil node to be 0, got %d", node.getHeight())
+		if node.getHeight() != -1 {
+			t.Errorf("Expected height of nil node to be -1, got %d", node.getHeight())
 		}
-		return 0
+		return -1
 	}
 
 	left_height := node.left.heightTestHelper(t)
@@ -104,11 +104,11 @@ func (node *Node) heightTestHelper(t *testing.T) int32 {
 
 func (node *Node) heightTestHelperCount(t *testing.T, count int) (int32, int) {
 	if node == nil {
-		if node.getHeight() != 0 {
-			t.Errorf("Expected height of nil node to be 0, got %d", node.getHeight())
+		if node.getHeight() != -1 {
+			t.Errorf("Expected height of nil node to be -1, got %d", node.getHeight())
 			count += 1
 		}
-		return 0, count
+		return -1, count
 	}
 
 	left_height, c := node.left.heightTestHelperCount(t, count)

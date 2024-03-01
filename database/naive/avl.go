@@ -130,11 +130,9 @@ func (root *Node) insertAVL(key string, data *Data) *Node {
 	// TODO Optimize
 	// Update height
 	root.height.Store(
-		1 + max(
-			root.left.getHeight(),
-			root.right.getHeight(),
-		),
+		1 + max(root.left.getHeight(), root.right.getHeight()),
 	)
+
 	balanceFactor := root.getBalanceFactor()
 
 	// Conditions under which balanceFactor itself would not lead to a balancing operation:

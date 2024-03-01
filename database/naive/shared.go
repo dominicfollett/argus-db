@@ -46,7 +46,7 @@ func (node *Node) inorderDesc(keys []string) []string {
 // If the node is nil, it returns 0, indicating the height of a non-existent node.
 func (node *Node) getHeight() int32 {
 	if node == nil {
-		return 0
+		return -1
 	}
 	return node.height.Load()
 }
