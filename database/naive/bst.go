@@ -74,6 +74,8 @@ func (node *Node) updateHeight(left_height int32, right_height int32) {
 	old_height := node.getHeight()
 	new_height := 1 + max(left_height, right_height)
 
+	//println("%s", node.key, "old_height: ", old_height, " new_height: ", new_height, " left_height: ", left_height, " right_height: ", right_height)
+
 	// TODO: Can we do away with this for loop?
 	for new_height > old_height {
 		if node.height.CompareAndSwap(old_height, new_height) {
@@ -153,6 +155,5 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 	node.updateHeight(left_height, right_height)
 
 	//balance_factor := left_height - right_height
-
 	return node.getHeight()
 }

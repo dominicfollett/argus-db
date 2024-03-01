@@ -76,6 +76,9 @@ func TestBSTConcurrentInsertsWithDuplicates(t *testing.T) {
 
 func (node *Node) heightTestHelper(t *testing.T) int32 {
 	if node == nil {
+		if node.getHeight() != 0 {
+			t.Errorf("Expected height of nil node to be 0, got %d", node.getHeight())
+		}
 		return 0
 	}
 
@@ -86,8 +89,9 @@ func (node *Node) heightTestHelper(t *testing.T) int32 {
 
 	if absInt32(expected_height-node.getHeight()) != 0 {
 		t.Errorf(
-			"Difference between expected height: %d, and actual height: %d, is greater than zero! "+
+			"%s: Difference between expected height: %d, and actual height: %d, is greater than zero! "+
 				"Left height: %d, Right height: %d",
+			node.key,
 			expected_height,
 			node.getHeight(),
 			left_height,
@@ -100,6 +104,10 @@ func (node *Node) heightTestHelper(t *testing.T) int32 {
 
 func (node *Node) heightTestHelperCount(t *testing.T, count int) (int32, int) {
 	if node == nil {
+		if node.getHeight() != 0 {
+			t.Errorf("Expected height of nil node to be 0, got %d", node.getHeight())
+			count += 1
+		}
 		return 0, count
 	}
 
