@@ -35,9 +35,9 @@ func (node *Node) inorderDesc(keys []string) []string {
 		return keys
 	}
 
-	keys = node.right.inorderDesc(keys)
-	keys = append(keys, node.key)
 	keys = node.left.inorderDesc(keys)
+	keys = append(keys, node.key)
+	keys = node.right.inorderDesc(keys)
 
 	return keys
 }

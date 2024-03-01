@@ -1,6 +1,8 @@
 package naive
 
 import (
+	"math/rand"
+	"sort"
 	"strconv"
 	"sync"
 	"testing"
@@ -84,11 +86,13 @@ func (node *Node) heightTestHelper(t *testing.T) int32 {
 
 	if absInt32(expected_height-node.getHeight()) != 0 {
 		t.Errorf(
-			"Difference between expected height: %d, and actual height: %d, is over the threshold! ",
+			"Difference between expected height: %d, and actual height: %d, is greater than zero! "+
+				"Left height: %d, Right height: %d",
 			expected_height,
 			node.getHeight(),
+			left_height,
+			right_height,
 		)
-		t.Errorf("left: %d, right: %d", left_height, right_height)
 	}
 
 	return expected_height
@@ -148,9 +152,54 @@ func TestBSTHeightCalulcations(t *testing.T) {
 	// Check the height of each node
 	bst.root.heightTestHelper(t)
 
-	// TODO: Curiously enough total differences varies on each run - this makes sense because or the variable order of insertion, and the num of duplicates
 	// However I'd like to understand why it appears that all differences between expected and actual is 1 and not any other number.
 	// Can we prove this? At the very least we'd then know that the heights are be being consistently under estimated and not over estimated.
+	_, count := bst.root.heightTestHelperCount(t, 0)
+	if count != 0 {
+		t.Errorf("Total differences %d", count)
+	}
+}
+
+func TestWithRandomKeys(t *testing.T) {
+
+	keys := []string{"T", "X", "G", "L", "E", "Q", "M", "H", "O", "I", "B", "Z", "A", "V", "S", "R", "K", "P", "C", "D", "U", "F", "N", "W", "Y", "J"}
+	rand.Shuffle(len(keys), func(i, j int) { keys[i], keys[j] = keys[j], keys[i] })
+
+	bst := NewBST()
+
+	var wg sync.WaitGroup
+	concurrencyLevel := 6
+
+	for i := 0; i < concurrencyLevel; i++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+			for j := 0; j < concurrencyLevel; j++ {
+				// Use modulo to allow overflow and a bit of duplication
+				offset := (goroutineID*concurrencyLevel + j) % len(keys)
+				bst.Insert(keys[offset], 1, 1)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	result := bst.GetKeys()
+	sort.Strings(keys)
+
+	if len(keys) != len(result) {
+		t.Errorf("Expected and result slices differ in length; expected: %d, got: %d", len(keys), len(result))
+	}
+
+	for i, expectedKey := range keys {
+		if expectedKey != string(result[i]) {
+			t.Errorf("Key mismatch at index %d; expected: %s, got: %s", i, expectedKey, result[i])
+		}
+	}
+
+	// Check the height of each node
+	bst.root.heightTestHelper(t)
+
+	// Count the number of differences between expected and actual heights
 	_, count := bst.root.heightTestHelperCount(t, 0)
 	if count != 0 {
 		t.Errorf("Total differences %d", count)

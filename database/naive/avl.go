@@ -119,12 +119,12 @@ func (root *Node) insertAVL(key string, data *Data) *Node {
 		return root
 	}
 
-	if root.key > key {
-		root.right = root.right.insertAVL(key, data)
+	if key < root.key {
+		root.left = root.left.insertAVL(key, data)
 	}
 
-	if root.key < key {
-		root.left = root.left.insertAVL(key, data)
+	if key > root.key {
+		root.right = root.right.insertAVL(key, data)
 	}
 
 	// TODO Optimize
