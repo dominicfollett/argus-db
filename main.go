@@ -28,94 +28,93 @@ func (s *Service) Limiter(key string, refill string, capacity string) (string, e
 	return "OK", nil
 }
 
-type Logger struct {
-	log func(string)
+func healthHandler() http.Handler {
+	// Think about closures here
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		},
+	)
 }
 
-// WTF is this? Use slog instead
-func newLogger(logFunc func(string)) *Logger {
-	return &Logger{
-		log: logFunc,
-	}
+func limitHandler(logger *slog.Logger, service *Service) http.Handler {
+	// Think about closures here
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+
+			// Get the query parameters
+			query := r.URL.Query()
+
+			// TODO add more parameters
+			key := query.Get("key")
+			refill := query.Get("refill")
+			capacity := query.Get("capacity")
+
+			if key == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("key is required"))
+				return
+			}
+
+			if refill == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("refill is required"))
+				return
+			}
+
+			if capacity == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("capacity is required"))
+				return
+			}
+
+			// Call the service layer
+			result, err := service.Limiter(key, refill, capacity)
+
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(err.Error()))
+				return
+			}
+
+			// Write the result
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(result))
+		},
+	)
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func loggingMiddleware(logger *slog.Logger, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+		h.ServeHTTP(w, r)
+
+		// duration is in nanoseconds
+		duration := time.Since(start)
+		logger.Info("request", "method", r.Method, "url", r.URL.String(), "duration", duration)
+	})
 }
 
-func NewLimiterHandler(logger *Logger, service *Service) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
-		// Get the query parameters
-		query := r.URL.Query()
-
-		// TODO add more parameters
-		key := query.Get("key")
-		refill := query.Get("refill")
-		capacity := query.Get("capacity")
-
-		if key == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("key is required"))
-			return
-		}
-
-		if refill == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("refill is required"))
-			return
-		}
-
-		if capacity == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("capacity is required"))
-			return
-		}
-
-		// Call the service layer
-		result, err := service.Limiter(key, refill, capacity)
-
-		// TODO WTF is this?
-		logger.log("An internal error occurred.")
-
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		// Write the result
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(result))
-	}
-
+func addRoutes(mux *http.ServeMux, logger *slog.Logger, service *Service) {
+	mux.Handle("/api/v1/health", loggingMiddleware(logger, healthHandler()))
+	mux.Handle("/api/v1/limit", loggingMiddleware(logger, limitHandler(logger, service)))
 }
 
-func addRoutes(mux *http.ServeMux, logger *Logger, service *Service) {
-	mux.HandleFunc("/api/v1/health", healthHandler)
-	mux.HandleFunc("/api/v1/limit", NewLimiterHandler(logger, service))
-}
-
-func NewServer(logger *Logger, service *Service) http.Handler {
+func NewServer(logger *slog.Logger, service *Service) http.Handler {
 	mux := http.NewServeMux()
-
 	addRoutes(mux, logger, service)
-
-	var handler http.Handler = mux
-
-	handler = loggerMiddleware(handler)
-	//handler = authMiddleware(handler)
-	return handler
+	return mux
 }
 
 func run(
