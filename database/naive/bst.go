@@ -113,6 +113,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 			return node.getHeight() // or just new_height?
 		} else {
 			right_height = node.right.getHeight()
+
 			// node.lock will be released in the recursive call
 			left_height = node.left.insertBST(&node.lock, key, tokens, capacity)
 		}
@@ -129,6 +130,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 			return node.getHeight() // or just new_height?
 		} else {
 			left_height = node.left.getHeight()
+
 			// node.lock will be released in the recursive call
 			right_height = node.right.insertBST(&node.lock, key, tokens, capacity)
 		}
@@ -136,6 +138,7 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 
 	node.updateHeight(left_height, right_height)
 
-	//balance_factor := left_height - right_height
+	// TODO: Calculate balance factor, and atomically update the global counter
+	// balance_factor := absInt32(left_height - right_height)
 	return node.getHeight()
 }
