@@ -3,18 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"time"
 )
-
 
 type Service struct {
 	Memtable map[string]string
 }
 
-func NewService() *Service {
+func NewLimiterService() *Service {
 	return &Service{
 		Memtable: make(map[string]string),
 	}
@@ -29,6 +32,7 @@ type Logger struct {
 	log func(string)
 }
 
+// WTF is this? Use slog instead
 func newLogger(logFunc func(string)) *Logger {
 	return &Logger{
 		log: logFunc,
@@ -40,7 +44,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
@@ -80,6 +84,7 @@ func NewLimiterHandler(logger *Logger, service *Service) func(http.ResponseWrite
 
 		// Call the service layer
 		result, err := service.Limiter(key, refill, capacity)
+
 		// TODO WTF is this?
 		logger.log("An internal error occurred.")
 
@@ -96,65 +101,80 @@ func NewLimiterHandler(logger *Logger, service *Service) func(http.ResponseWrite
 
 }
 
-
 func addRoutes(mux *http.ServeMux, logger *Logger, service *Service) {
 	mux.HandleFunc("/api/v1/health", healthHandler)
 	mux.HandleFunc("/api/v1/limit", NewLimiterHandler(logger, service))
-}	
-
+}
 
 func NewServer(logger *Logger, service *Service) http.Handler {
 	mux := http.NewServeMux()
-	
+
 	addRoutes(mux, logger, service)
-	
+
 	var handler http.Handler = mux
 
-	//handler = logMiddleware(handler)
+	handler = loggerMiddleware(handler)
 	//handler = authMiddleware(handler)
 	return handler
 }
 
-// TODO revisit this
-func main() {
-	println("Hello, World!")
+func run(
+	ctx context.Context,
+	args []string,
+	getenv func(string) string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
+	defer cancel()
 
-	// TODO LOL this is so bizarre just use SLOG instead
-	logger := newLogger(func(s string) {
-		println(s)
-	})
-	service := NewService()
+	// args override environment variables?
+	// Maybe just use simple args for now
+	// I should probably define a struct for the configuration?
+	// And then initialize it from the environment variables and the command line arguments
+	// options could include the port, the log level, the database type and connection string, etc.
+	// a path to a file containing the database configuration could also be an option
 
+	// TODO: Get the logger level from the configuration
+	loggerLevel := slog.LevelInfo
+	logger := slog.New(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: loggerLevel}))
+
+	service := NewLimiterService()
 
 	srv := NewServer(logger, service)
 	httpServer := &http.Server{
-		Addr:	net.JoinHostPort("localhost", "8080"),
+		Addr:    net.JoinHostPort("localhost", "8080"),
 		Handler: srv,
 	}
 
 	go func() {
-		logger.log("Server is listening on " + httpServer.Addr)
-		if err := httpServer.ListenAndServe(); err != nil &&  err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "Could not listen on %s: %v\n", httpServer.Addr, err)
+		logger.Info("Server is listening on " + httpServer.Addr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(stderr, "Could not listen on %s: %v\n", httpServer.Addr, err)
 		}
 	}()
-	
+
 	var wg sync.WaitGroup
 	wg.Add(1)
-
-	ctx := context.Background()
-
-	go func(){
+	go func() {
 		defer wg.Done()
-
-		// TODO What does this do?
 		<-ctx.Done()
-		logger.log("Shutting down the server...")
-
-		if err := httpServer.Shutdown(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error shutting down the server: %v\n", err)
+		// make a new context for the Shutdown (thanks Alessandro Rosetti)
+		shutdownCtx := context.Background()
+		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			fmt.Fprintf(stderr, "error shutting down http server: %s\n", err)
 		}
 	}()
-
 	wg.Wait()
+	return nil
+}
+
+func main() {
+	ctx := context.Background()
+	if err := run(ctx, os.Args, os.Getenv, os.Stdout, os.Stderr); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
 }
