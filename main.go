@@ -124,6 +124,14 @@ func run(
 	stdout io.Writer,
 	stderr io.Writer,
 ) error {
+	// Create a copy of the parent context that is marked done (its Done channel is closed) when
+	// the os.Interrupt signal arrives. This prevents the program from immediately exiting when the os.Interrupt is received
+	// which would prevent us from shutting down the server gracefully. "The stop function [cancel] unregisters the signal
+	// behavior, which restores the default behavior for a given signal. For example, the default
+	// behavior of a Go program receiving os.Interrupt is to exit. Calling NotifyContext(parent, os.Interrupt) will change
+	// the behavior to cancel the returned context. Future interrupts received will not trigger the default (exit) behavior
+	// until the returned stop function is called." In other words, the stop function cancels the context and restores the
+	// default behavior of os.Interrupt on the parent context.
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 
@@ -140,12 +148,19 @@ func run(
 
 	service := NewLimiterService()
 
-	srv := NewServer(logger, service)
+	server := NewServer(logger, service)
+
+	// Take note of the timeouts this makes the server more robust and less susceptible to attacks
+	// and therefore makes it more production ready
 	httpServer := &http.Server{
-		Addr:    net.JoinHostPort("localhost", "8080"),
-		Handler: srv,
+		Addr:              net.JoinHostPort("localhost", "8080"),
+		Handler:           http.TimeoutHandler(server, 1*time.Second, "timeout\n"),
+		ReadTimeout:       500 * time.Millisecond,
+		ReadHeaderTimeout: 500 * time.Millisecond,
+		IdleTimeout:       1 * time.Second,
 	}
 
+	// ListenAndServe is a blocking call so we need to run it in a goroutine
 	go func() {
 		logger.Info("Server is listening on " + httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -155,18 +170,29 @@ func run(
 
 	var wg sync.WaitGroup
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
+		// <-ctx.Done() is used within a goroutine to wait for a signal indicating that a context
+		// (ctx) has been canceled or has expired. The ctx.Done() method returns a channel that
+		// is closed when the context is canceled or when its deadline expires, signaling to the
+		// goroutine that it should stop its work and exit.
+		// This is a blocking call
+		// <- == "listen on" and ctx.Done() == "the channel to listen on", i.e. block until the channel is closed
 		<-ctx.Done()
-		// make a new context for the Shutdown (thanks Alessandro Rosetti)
-		shutdownCtx := context.Background()
-		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+
+		// Make a new context for the Shutdown because the parent context has already been canceled
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+		// Don't forget to call cancel to release resources associated with the shutdownCtx
 		defer cancel()
+
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			fmt.Fprintf(stderr, "error shutting down http server: %s\n", err)
 		}
 	}()
 	wg.Wait()
+
 	return nil
 }
 
