@@ -29,7 +29,6 @@ func (s *Service) Limiter(key string, refill string, capacity string) (string, e
 }
 
 func healthHandler() http.Handler {
-	// Think about closures here
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodGet {
@@ -94,11 +93,11 @@ func limitHandler(logger *slog.Logger, service *Service) http.Handler {
 	)
 }
 
-func loggingMiddleware(logger *slog.Logger, h http.Handler) http.Handler {
+func loggingMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		h.ServeHTTP(w, r)
+		next.ServeHTTP(w, r)
 
 		// duration is in nanoseconds
 		duration := time.Since(start)
@@ -106,14 +105,13 @@ func loggingMiddleware(logger *slog.Logger, h http.Handler) http.Handler {
 	})
 }
 
-func addRoutes(mux *http.ServeMux, logger *slog.Logger, service *Service) {
-	mux.Handle("/api/v1/health", loggingMiddleware(logger, healthHandler()))
-	mux.Handle("/api/v1/limit", loggingMiddleware(logger, limitHandler(logger, service)))
-}
-
 func NewServer(logger *slog.Logger, service *Service) http.Handler {
 	mux := http.NewServeMux()
-	addRoutes(mux, logger, service)
+
+	// Add routes
+	mux.Handle("/api/v1/health", loggingMiddleware(logger, healthHandler()))
+	mux.Handle("/api/v1/limit", loggingMiddleware(logger, limitHandler(logger, service)))
+
 	return mux
 }
 
