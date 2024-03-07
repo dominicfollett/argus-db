@@ -13,6 +13,43 @@ import (
 	"time"
 )
 
+type Config struct {
+	Host     string
+	Port     string
+	LogLevel slog.Level
+	Engine   string
+}
+
+func loadConfig(getenv func(string) string) *Config {
+	levelMap := map[string]slog.Level{
+		"debug": slog.LevelDebug,
+		"info":  slog.LevelInfo,
+		"warn":  slog.LevelWarn,
+		"error": slog.LevelError,
+	}
+
+	config := &Config{
+		Host:     "localhost",
+		Port:     "8123",
+		LogLevel: slog.LevelInfo,
+		Engine:   "naive",
+	}
+
+	if host := getenv("HOST"); host != "" {
+		config.Host = host
+	}
+
+	if port := getenv("PORT"); port != "" {
+		config.Port = port
+	}
+
+	if logLevel := getenv("LOG_LEVEL"); logLevel != "" {
+		config.LogLevel = levelMap[logLevel]
+	}
+
+	return config
+}
+
 type Service struct {
 	Memtable map[string]string
 }
@@ -108,20 +145,13 @@ func loggingMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
 func NewServer(logger *slog.Logger, service *Service) http.Handler {
 	mux := http.NewServeMux()
 
-	// Add routes
 	mux.Handle("/api/v1/health", loggingMiddleware(logger, healthHandler()))
 	mux.Handle("/api/v1/limit", loggingMiddleware(logger, limitHandler(logger, service)))
 
 	return mux
 }
 
-func run(
-	ctx context.Context,
-	args []string,
-	getenv func(string) string,
-	stdout io.Writer,
-	stderr io.Writer,
-) error {
+func run(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
 	// Create a copy of the parent context that is marked done (its Done channel is closed) when
 	// the os.Interrupt signal arrives. This prevents the program from immediately exiting when the os.Interrupt is received
 	// which would prevent us from shutting down the server gracefully. "The stop function [cancel] unregisters the signal
@@ -133,25 +163,15 @@ func run(
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 
-	// args override environment variables?
-	// Maybe just use simple args for now
-	// I should probably define a struct for the configuration?
-	// And then initialize it from the environment variables and the command line arguments
-	// options could include the port, the log level, the database type and connection string, etc.
-	// a path to a file containing the database configuration could also be an option
+	config := loadConfig(getenv)
 
-	// TODO: Get the logger level from the configuration
-	loggerLevel := slog.LevelInfo
-	logger := slog.New(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: loggerLevel}))
-
+	logger := slog.New(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: config.LogLevel}))
 	service := NewLimiterService()
-
 	server := NewServer(logger, service)
 
-	// Take note of the timeouts this makes the server more robust and less susceptible to attacks
-	// and therefore makes it more production ready
+	// Take note of the timeouts: this makes the server more robust and less susceptible to attacks
 	httpServer := &http.Server{
-		Addr:              net.JoinHostPort("localhost", "8080"),
+		Addr:              net.JoinHostPort(config.Host, config.Port),
 		Handler:           http.TimeoutHandler(server, 1*time.Second, "timeout\n"),
 		ReadTimeout:       500 * time.Millisecond,
 		ReadHeaderTimeout: 500 * time.Millisecond,
@@ -162,7 +182,7 @@ func run(
 	go func() {
 		logger.Info("Server is listening on " + httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(stderr, "Could not listen on %s: %v\n", httpServer.Addr, err)
+			slog.Error("Could not listen on %s: %v", httpServer.Addr, err)
 		}
 	}()
 
@@ -186,7 +206,7 @@ func run(
 		defer cancel()
 
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			fmt.Fprintf(stderr, "error shutting down http server: %s\n", err)
+			slog.Error("error shutting down http server: %v\n", err)
 		}
 	}()
 	wg.Wait()
@@ -196,7 +216,7 @@ func run(
 
 func main() {
 	ctx := context.Background()
-	if err := run(ctx, os.Args, os.Getenv, os.Stdout, os.Stderr); err != nil {
+	if err := run(ctx, os.Getenv, os.Stdout); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
