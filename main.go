@@ -12,6 +12,8 @@ import (
 	"os/signal"
 	"sync"
 	"time"
+
+	. "github.com/dominicfollett/argus-db/service"
 )
 
 type Config struct {
@@ -50,26 +52,6 @@ func loadConfig(getenv func(string) string) *Config {
 	}
 
 	return config
-}
-
-type Service struct {
-	Memtable map[string]string
-}
-
-func NewLimiterService() *Service {
-	return &Service{
-		Memtable: make(map[string]string),
-	}
-}
-
-func (s *Service) Limiter(ctx context.Context, key string, capacity int, interval int, unit string) (string, error) {
-	select {
-	case <-ctx.Done():
-		return "", fmt.Errorf("request canceled")
-	default:
-		// TODO implement the limiter
-		return "OK", nil
-	}
 }
 
 func healthHandler() http.Handler {
@@ -128,7 +110,7 @@ func limitHandler(logger *slog.Logger, service *Service) http.Handler {
 				// logger.Info("json.Unmarshal", "duration", duration)
 
 				// Call the service layer
-				result, err := service.Limiter(r.Context(), args.Key, args.Capacity, args.Interval, args.Unit)
+				result, err := service.Limit(r.Context(), args.Key, args.Capacity, args.Interval, args.Unit)
 				if err != nil {
 					if err.Error() == "request canceled" {
 						logger.Info("request canceled")
@@ -185,7 +167,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	config := loadConfig(getenv)
 
 	logger := slog.New(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: config.LogLevel}))
-	service := NewLimiterService()
+	service := NewLimiterService(config.Engine)
 	server := NewServer(logger, service)
 
 	// Take note of the timeouts: this makes the server more robust and less susceptible to attacks
