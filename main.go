@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -20,13 +21,14 @@ type Config struct {
 	Engine   string
 }
 
+var levelMap = map[string]slog.Level{
+	"debug": slog.LevelDebug,
+	"info":  slog.LevelInfo,
+	"warn":  slog.LevelWarn,
+	"error": slog.LevelError,
+}
+
 func loadConfig(getenv func(string) string) *Config {
-	levelMap := map[string]slog.Level{
-		"debug": slog.LevelDebug,
-		"info":  slog.LevelInfo,
-		"warn":  slog.LevelWarn,
-		"error": slog.LevelError,
-	}
 
 	config := &Config{
 		Host:     "localhost",
@@ -60,9 +62,14 @@ func NewLimiterService() *Service {
 	}
 }
 
-func (s *Service) Limiter(key string, refill string, capacity string) (string, error) {
-	// TODO implement the limiter
-	return "OK", nil
+func (s *Service) Limiter(ctx context.Context, key string, capacity int, interval int, unit string) (string, error) {
+	select {
+	case <-ctx.Done():
+		return "", fmt.Errorf("request canceled")
+	default:
+		// TODO implement the limiter
+		return "OK", nil
+	}
 }
 
 func healthHandler() http.Handler {
@@ -79,53 +86,65 @@ func healthHandler() http.Handler {
 	)
 }
 
+type limitArgs struct {
+	Key      string `json:"key"`
+	Capacity int    `json:"capacity"`
+	Interval int    `json:"interval"`
+	Unit     string `json:"unit"`
+}
+
 func limitHandler(logger *slog.Logger, service *Service) http.Handler {
-	// Think about closures here
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodGet {
-				w.WriteHeader(http.StatusMethodNotAllowed)
+			select {
+			case <-r.Context().Done():
+				logger.Info("request canceled")
 				return
+			default:
+				if r.Method != http.MethodPost {
+					w.WriteHeader(http.StatusMethodNotAllowed)
+					return
+				}
+
+				// TODO: consider using a pool of buffers with custom decoding, or easyjson or protobuf
+				// Ideas: https://github.com/goccy/go-json
+				// start := time.Now()
+				var args limitArgs
+				buffer, err := io.ReadAll(r.Body)
+				if err != nil {
+					logger.Error("error reading request body", "error", err)
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte("error reading request body"))
+					return
+				}
+
+				if err = json.Unmarshal(buffer, &args); err != nil {
+					logger.Error("error decoding request body", "error", err)
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte("error decoding request body"))
+					return
+				}
+				// duration := time.Since(start)
+				// logger.Info("json.Unmarshal", "duration", duration)
+
+				// Call the service layer
+				result, err := service.Limiter(r.Context(), args.Key, args.Capacity, args.Interval, args.Unit)
+				if err != nil {
+					if err.Error() == "request canceled" {
+						logger.Info("request canceled")
+						return
+					} else {
+						logger.Error("error calling limiter service: %v", err)
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+				}
+
+				// Write the result
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(result))
+
 			}
-
-			// Get the query parameters
-			query := r.URL.Query()
-
-			// TODO add more parameters
-			key := query.Get("key")
-			refill := query.Get("refill")
-			capacity := query.Get("capacity")
-
-			if key == "" {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("key is required"))
-				return
-			}
-
-			if refill == "" {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("refill is required"))
-				return
-			}
-
-			if capacity == "" {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("capacity is required"))
-				return
-			}
-
-			// Call the service layer
-			result, err := service.Limiter(key, refill, capacity)
-
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(err.Error()))
-				return
-			}
-
-			// Write the result
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(result))
 		},
 	)
 }
