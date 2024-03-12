@@ -5,19 +5,12 @@ import (
 	"sync/atomic"
 )
 
-// Shared Data structure stores the Token Bucket particulars
-type Data struct {
-	tokens int
-	time   string
-	// and ?
-}
-
 // Node represents a single node within a BST.
 // It contains the key, associated data, height of the node, and pointers to the left and right child nodes.
 type Node struct {
 	lock   sync.Mutex
 	key    string       // Key is the unique identifier for the node.
-	data   *Data        // Data points to the associated data of the node.
+	data   any          // Data points to the associated data of the node.
 	height atomic.Int32 // Height is the height of the node within the tree.
 	left   *Node        // Left points to the left child node.
 	right  *Node        // Right points to the right child node.
@@ -25,8 +18,8 @@ type Node struct {
 
 // The message that is passed over the channel
 type Message struct {
-	Key  string
-	Data *Data
+	key  string
+	data any
 }
 
 // inorderDesc traverses the tree in an in-order manner (descending order) and collects the keys.

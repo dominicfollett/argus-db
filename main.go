@@ -70,8 +70,8 @@ func healthHandler() http.Handler {
 
 type limitArgs struct {
 	Key      string `json:"key"`
-	Capacity int    `json:"capacity"`
-	Interval int    `json:"interval"`
+	Capacity int32  `json:"capacity"`
+	Interval int32  `json:"interval"`
 	Unit     string `json:"unit"`
 }
 

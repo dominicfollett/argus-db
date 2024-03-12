@@ -19,7 +19,7 @@ func NewAVL() *AVL {
 
 // Insert adds a new node with the given key and data to the AVL tree.
 // It ensures that the tree remains balanced after the insertion.
-func (tree *AVL) Insert(key string, data *Data) {
+func (tree *AVL) Insert(key string, data any) {
 	tree.root = tree.root.insertAVL(key, data)
 }
 
@@ -103,7 +103,7 @@ func (A *Node) rotateLeft() *Node {
 
 // insertAVL adds a new node with the given key and data to the tree rooted at the current node.
 // It ensures the AVL tree properties are maintained by performing necessary rotations.
-func (root *Node) insertAVL(key string, data *Data) *Node {
+func (root *Node) insertAVL(key string, data any) *Node {
 
 	if root == nil {
 		return &Node{

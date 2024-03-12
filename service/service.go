@@ -3,9 +3,22 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/dominicfollett/argus-db/database"
 )
+
+// Shared Data structure stores the Token Bucket particulars
+type Data struct {
+	capacity  int32
+	timestamp time.Time // Should this rather be a unix timestamp as int64?
+}
+
+type Params struct {
+	capacity int32
+	interval int32
+	unit     string
+}
 
 type Service struct {
 	Database Database
@@ -18,20 +31,21 @@ func NewLimiterService(engine string) *Service {
 	}
 }
 
-func (s *Service) Limit(ctx context.Context, key string, capacity int, interval int, unit string) (string, error) {
+func (s *Service) Limit(ctx context.Context, key string, capacity int32, interval int32, unit string) (string, error) {
 	select {
 	case <-ctx.Done():
 		return "", fmt.Errorf("request canceled")
 	default:
 		// TODO Validate the input?
 
-		result, err := s.Database.Insert(key, capacity, interval, unit)
+		result, err := s.Database.Calculate(key, &Params{capacity, interval, unit})
+
 		if err != nil {
 			// TODO
 			return "", err
 		}
 
-		if result {
+		if result.(bool) {
 			return "OK", nil
 		} else {
 			return "LIMITED", nil

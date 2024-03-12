@@ -5,7 +5,6 @@ package naive
 import (
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 // BST represents a BST tree with a pointer to the root node.
@@ -27,34 +26,50 @@ func (tree *BST) GetKeys() []string {
 	return keys
 }
 
-// newBSTNode creates and returns a new instance of a BST node with the given key and data.
-func newBSTNode(key string, tokens int) *Node {
-	return &Node{
-		key:  key,
-		lock: sync.Mutex{},
-		data: &Data{ // TODO
-			tokens: tokens,
-			time:   time.Now().String(),
-		},
-		height: atomic.Int32{},
-	}
-}
-
-// Insert adds a new node with the given key and data to the BST tree.
-// This function will also return an integer representing whether the rate limiting call is allowable
-func (tree *BST) Insert(key string, tokens int, capacity int) {
-
+// Search retrieves the node with the given key from the BST tree.
+// If the node does not exist, it returns nil.
+// This function is thread-safe and uses hand-over-hand locking to ensure that the tree is properly
+// locked during the search process. However, users of this function MUST release the lock on the
+// returned node after they are done with it.
+func (tree *BST) Search(key string) *Node {
 	tree.rootLock.Lock()
 
 	if tree.root == nil {
-		node := newBSTNode(key, tokens)
-		tree.root = node
 		tree.rootLock.Unlock()
-		return
+		return nil
 	}
 
-	// tree.rootLock will be released through hand-over-hand locking
-	tree.root.insertBST(&tree.rootLock, key, tokens, capacity)
+	return tree.root.searchBST(&tree.rootLock, key)
+}
+
+func (node *Node) searchBST(parentLock *sync.Mutex, key string) *Node {
+	// Try and obtain this node's lock
+	node.lock.Lock()
+
+	// Good now release the prior lock
+	parentLock.Unlock()
+
+	if key == node.key {
+		return node
+	}
+
+	var result *Node
+
+	if key < node.key {
+		if node.left == nil {
+			return nil
+		}
+		result = node.left.searchBST(&node.lock, key)
+	}
+
+	if key > node.key {
+		if node.right == nil {
+			return nil
+		}
+		result = node.right.searchBST(&node.lock, key)
+	}
+
+	return result
 }
 
 // updateHeight atomically updates the height of the node based on the height of its left and right children.
@@ -73,10 +88,43 @@ func (node *Node) updateHeight(left_height int32, right_height int32) {
 	}
 }
 
-// insertBST performs a recursive search and when applicable insertion of a new node with the given key and data to the BST tree.
-// This method is thread-safe and uses hand-over-hand locking to ensure that the tree is properly locked during the insertion process.
-// The method returns the height of the node after the insertion.
-func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capacity int) int32 {
+// newBSTNode creates and returns a new instance of a BST node with the given key and data.
+func newBSTNode(key string) *Node {
+	return &Node{
+		key:    key,
+		lock:   sync.Mutex{},
+		data:   nil,
+		height: atomic.Int32{},
+	}
+}
+
+// Insert adds a new node with the given key and data to the BST tree.
+// This function is thread-safe and uses hand-over-hand locking to ensure that the tree is properly
+// locked during the insertion process. However, users of this function MUST release the lock on the
+// returned node after they are done with it.
+func (tree *BST) Insert(key string) *Node {
+
+	tree.rootLock.Lock()
+
+	if tree.root == nil {
+		node := newBSTNode(key)
+		tree.root = node
+
+		tree.root.lock.Lock()
+		tree.rootLock.Unlock()
+		return tree.root
+	}
+
+	// tree.rootLock will be released through hand-over-hand locking
+	_, result := tree.root.insertBST(&tree.rootLock, key)
+	return result
+}
+
+// insertBST adds a new node with the given key to the tree and returns the height of the tree and the new node.
+// This function is thread-safe and uses hand-over-hand locking to ensure that the tree is properly
+// locked during the insertion process. However, users of this function MUST release the lock on the
+// returned node after they are done with it.
+func (node *Node) insertBST(parentLock *sync.Mutex, key string) (int32, *Node) {
 
 	// Try and obtain this node's lock
 	node.lock.Lock()
@@ -84,55 +132,58 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 	// Good now release the prior lock
 	parentLock.Unlock()
 
-	// Critical section
 	if node.key == key {
-
-		// TODO: Update Data & implement token bucket
-		node.data.time = time.Now().String()
-		node.data.tokens = tokens
-
 		// Might as well update the height of this node
 		node.updateHeight(node.left.getHeight(), node.right.getHeight())
 
-		// Release this node's lock because we're done with it
-		node.lock.Unlock()
-		return node.getHeight()
+		return node.getHeight(), node
 	}
 
 	var left_height int32
 	var right_height int32
+	var result *Node
 
 	if key < node.key {
 		if node.left == nil {
-			node.left = newBSTNode(key, tokens)
+			node.left = newBSTNode(key)
 
 			// We have to update this node's height because we've just performed an insertion
 			node.updateHeight(node.left.getHeight(), node.right.getHeight())
 
+			// We have to lock the new node
+			node.left.lock.Lock()
+			result = node.left
+
+			// We have to release the lock on this node because we're done with it
 			node.lock.Unlock()
-			return node.getHeight() // or just new_height?
+			return node.getHeight(), result
 		} else {
 			right_height = node.right.getHeight()
 
 			// node.lock will be released in the recursive call
-			left_height = node.left.insertBST(&node.lock, key, tokens, capacity)
+			left_height, result = node.left.insertBST(&node.lock, key)
 		}
 	}
 
 	if key > node.key {
 		if node.right == nil {
-			node.right = newBSTNode(key, tokens)
+			node.right = newBSTNode(key)
 
 			// We have to update this node's height because we've just performed an insertion
 			node.updateHeight(node.left.getHeight(), node.right.getHeight())
 
+			// We have to lock the new node
+			node.right.lock.Lock()
+			result = node.right
+
+			// We have to release the lock on this node because we're done with it
 			node.lock.Unlock()
-			return node.getHeight() // or just new_height?
+			return node.getHeight(), result
 		} else {
 			left_height = node.left.getHeight()
 
 			// node.lock will be released in the recursive call
-			right_height = node.right.insertBST(&node.lock, key, tokens, capacity)
+			right_height, result = node.right.insertBST(&node.lock, key)
 		}
 	}
 
@@ -140,5 +191,5 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string, tokens int, capa
 
 	// TODO: Calculate balance factor, and atomically update the global counter
 	// balance_factor := absInt32(left_height - right_height)
-	return node.getHeight()
+	return node.getHeight(), result
 }

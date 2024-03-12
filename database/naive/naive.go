@@ -27,12 +27,33 @@ func NewDB() *NaiveDB {
 	}
 }
 
+// TODO: implement
 func (db *NaiveDB) checkBloomFilter(key string) bool {
-	// Check the bloom filter for the key
 	return false
 }
 
-func (db *NaiveDB) Insert(key string, capacity int, interval int, unit string) (bool, error) {
+// TODO: implement
+func (db *NaiveDB) Calculate(key string, params any) (any, error) {
+	// PART 1 -----------------------------------------------------------------
+	// Insert/Search and compute the result if it exists in the BST
+
+	node := db.bst.Search(key)
+
+	if node == nil {
+		return false, nil
+	}
+
+	// We must absolutely unlock the node before we return
+	defer node.lock.Unlock()
+
+	result, err := db.CallBack(node.data, params)
+	if err != nil {
+		return false, err
+	}
+	return result, nil
+
+	// PART 2 -----------------------------------------------------------------
+	// TODO: do we really need a bloom filter?
 	// Check if the key is in the bloom filter
 
 	// If it is, check the BST
@@ -53,6 +74,4 @@ func (db *NaiveDB) Insert(key string, capacity int, interval int, unit string) (
 	// Otherwise, insert the key into the BST and
 	// push the key and node data into the avl queue (do this in a separate go routine)
 	// push the key into the bloom filter (do this in a separate go routine)
-
-	return true, nil
 }
