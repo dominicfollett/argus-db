@@ -24,10 +24,19 @@ type Service struct {
 	Database Database
 }
 
+func callback(data any, params any) (any, error) {
+	// d := data.(*Data)
+	// p := params.(*Params)
+
+	// TODO: Implement the token bucket algorithm
+
+	return true, nil
+}
+
 func NewLimiterService(engine string) *Service {
 
 	return &Service{
-		Database: NewDatabase(engine),
+		Database: NewDatabase(engine, callback),
 	}
 }
 

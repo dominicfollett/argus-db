@@ -4,9 +4,10 @@ type NaiveDB struct {
 	bloomFilter map[string]bool
 	bst         *BST
 	avl         *AVL
+	callback    func(data any, params any) (any, error)
 }
 
-func NewDB() *NaiveDB {
+func NewDB(callback func(data any, params any) (any, error)) *NaiveDB {
 	// Start the go routines that manage the BST and AVL trees, etc
 
 	// Start the go routine that listens on the AVL channel and manages the AVL tree
@@ -24,6 +25,7 @@ func NewDB() *NaiveDB {
 		bloomFilter: bloomFilter,
 		bst:         bst,
 		avl:         avl,
+		callback:    callback,
 	}
 }
 
@@ -46,7 +48,7 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 	// We must absolutely unlock the node before we return
 	defer node.lock.Unlock()
 
-	result, err := db.CallBack(node.data, params)
+	result, err := db.callback(node.data, params)
 	if err != nil {
 		return false, err
 	}
