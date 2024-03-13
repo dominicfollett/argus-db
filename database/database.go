@@ -6,7 +6,7 @@ type Database interface {
 	Calculate(key string, params any) (any, error)
 }
 
-func NewDatabase(engine string, callback func(data any, params any) (any, error)) Database {
+func NewDatabase(engine string, callback func(data any, params any) (any, any, error)) Database {
 	switch engine {
 	case "naive":
 		return naive.NewDB(callback)

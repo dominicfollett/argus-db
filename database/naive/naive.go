@@ -4,10 +4,10 @@ type NaiveDB struct {
 	bloomFilter map[string]bool
 	bst         *BST
 	avl         *AVL
-	callback    func(data any, params any) (any, error)
+	callback    func(data any, params any) (any, any, error)
 }
 
-func NewDB(callback func(data any, params any) (any, error)) *NaiveDB {
+func NewDB(callback func(data any, params any) (any, any, error)) *NaiveDB {
 	// Start the go routines that manage the BST and AVL trees, etc
 
 	// Start the go routine that listens on the AVL channel and manages the AVL tree
@@ -39,6 +39,9 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 	// PART 1 -----------------------------------------------------------------
 	// Insert/Search and compute the result if it exists in the BST
 
+	// TODO Hack
+	db.bst.Insert(key)
+
 	node := db.bst.Search(key)
 
 	if node == nil {
@@ -48,7 +51,10 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 	// We must absolutely unlock the node before we return
 	defer node.lock.Unlock()
 
-	result, err := db.callback(node.data, params)
+	data, result, err := db.callback(node.data, params)
+
+	node.data = data
+
 	if err != nil {
 		return false, err
 	}
