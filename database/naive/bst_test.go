@@ -28,7 +28,7 @@ func TestBST(t *testing.T) {
 				} else {
 					key = strconv.Itoa(goroutineID*numInserts + j)
 				}
-				bst.Insert(key, 1, 1, "s")
+				bst.Insert(key)
 			}
 		}(i)
 	}
@@ -64,7 +64,7 @@ func TestBSTWithRandomKeys(t *testing.T) {
 			for j := 0; j < concurrencyLevel; j++ {
 				// Use modulo to allow overflow and a bit of duplication
 				offset := (goroutineID*concurrencyLevel + j) % len(keys)
-				bst.Insert(keys[offset], 1, 1, "s")
+				bst.Insert(keys[offset])
 			}
 		}(i)
 	}

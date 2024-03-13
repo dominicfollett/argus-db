@@ -103,6 +103,7 @@ func (A *Node) rotateLeft() *Node {
 
 // insertAVL adds a new node with the given key and data to the tree rooted at the current node.
 // It ensures the AVL tree properties are maintained by performing necessary rotations.
+// TODO: Adjust this functions so that it need not return a node.
 func (root *Node) insertAVL(key string, data any) *Node {
 
 	if root == nil {
