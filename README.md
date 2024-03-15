@@ -1,8 +1,8 @@
 # Argus
 
-<center>
+<p align="center">
     <img src="argusdb.png" alt="Project Image" width="50%">
-</center>
+</p>
 
 ## Description
 
