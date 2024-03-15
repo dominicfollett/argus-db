@@ -3,26 +3,32 @@ package service
 import (
 	"context"
 	"fmt"
-	"math"
 	"time"
 
-	. "github.com/dominicfollett/argus-db/database"
+	"github.com/dominicfollett/argus-db/database"
 )
 
 // Shared Data structure stores the Token Bucket particulars
 type Data struct {
-	capacity  int32
-	timestamp time.Time // Should this rather be a unix timestamp as int64?
+	availableTokens int64
+	lastRefilled    time.Time // Should this rather be a unix timestamp as int64?
 }
 
 type Params struct {
-	capacity int32
+	capacity int64
 	interval int32
 	unit     string
 }
 
 type Service struct {
-	Database Database
+	Database database.Database
+}
+
+func min(a int64, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // TODO: This is a shit show, CLEAN
@@ -32,47 +38,36 @@ func callback(data any, params any) (any, any, error) {
 	var d *Data
 	if data == nil {
 		d = &Data{
-			capacity:  p.capacity,
-			timestamp: time.Now(),
+			availableTokens: p.capacity,
+			lastRefilled:    time.Now(),
 		}
 	} else {
 		d = data.(*Data)
 	}
 
-	refill_rate := float64(p.capacity) / float64(p.interval)
+	refillRate := float64(p.capacity) / float64(p.interval)
+	elapsedTime := time.Since(d.lastRefilled)
 
-	available_tokens := float64(d.capacity)
-
-	last_refilled := d.timestamp
-
-	elapsed_time := time.Since(last_refilled)
-
-	var refill_tokens float64
+	var refillTokens float64
 
 	switch p.unit {
 	case "s":
-		refill_tokens = elapsed_time.Seconds() * refill_rate
+		refillTokens = elapsedTime.Seconds() * refillRate
 	case "ms":
-		refill_tokens = float64(elapsed_time.Milliseconds()) * refill_rate
+		refillTokens = float64(elapsedTime.Milliseconds()) * refillRate
 	case "us":
-		refill_tokens = float64(elapsed_time.Microseconds()) * refill_rate
+		refillTokens = float64(elapsedTime.Microseconds()) * refillRate
 	}
 
-	if refill_tokens > 0 {
-		d.timestamp = time.Now()
-		available_tokens = math.Min(float64(p.capacity), available_tokens+refill_tokens)
+	if refillTokens > 0 {
+		d.lastRefilled = time.Now()
+		d.availableTokens = min(p.capacity, d.availableTokens+int64(refillTokens))
 	}
 
-	newCapacity := int32(available_tokens)
-
-	fmt.Println("New Capacity: ", newCapacity)
-
-	allowed := newCapacity > 0
+	allowed := d.availableTokens > 0
 	if allowed {
-		newCapacity--
+		d.availableTokens--
 	}
-
-	d.capacity = newCapacity
 
 	return d, allowed, nil
 }
@@ -80,17 +75,15 @@ func callback(data any, params any) (any, any, error) {
 func NewLimiterService(engine string) *Service {
 
 	return &Service{
-		Database: NewDatabase(engine, callback),
+		Database: database.NewDatabase(engine, callback),
 	}
 }
 
-func (s *Service) Limit(ctx context.Context, key string, capacity int32, interval int32, unit string) (string, error) {
+func (s *Service) Limit(ctx context.Context, key string, capacity int64, interval int32, unit string) (string, error) {
 	select {
 	case <-ctx.Done():
 		return "", fmt.Errorf("request canceled")
 	default:
-		// TODO Validate the input?
-
 		result, err := s.Database.Calculate(key, &Params{capacity, interval, unit})
 
 		if err != nil {

@@ -98,23 +98,23 @@ func (node *Node) heightTestHelper(t *testing.T, count int) (int32, int) {
 		return -1, count
 	}
 
-	left_height, count := node.left.heightTestHelper(t, count)
-	right_height, count := node.right.heightTestHelper(t, count)
+	leftHeight, count := node.left.heightTestHelper(t, count)
+	rightHeight, count := node.right.heightTestHelper(t, count)
 
-	expected_height := 1 + max(left_height, right_height)
+	expectedHeight := 1 + max(leftHeight, rightHeight)
 
-	if absInt32(expected_height-node.getHeight()) != 0 {
+	if absInt32(expectedHeight-node.getHeight()) != 0 {
 		t.Errorf(
 			"%s: Difference between expected height: %d, and actual height: %d, is greater than zero! "+
 				"Left height: %d, Right height: %d",
 			node.key,
-			expected_height,
+			expectedHeight,
 			node.getHeight(),
-			left_height,
-			right_height,
+			leftHeight,
+			rightHeight,
 		)
 		count += 1
 	}
 
-	return expected_height, count
+	return expectedHeight, count
 }

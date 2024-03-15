@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	. "github.com/dominicfollett/argus-db/service"
+	"github.com/dominicfollett/argus-db/service"
 )
 
 type Config struct {
@@ -70,12 +70,12 @@ func healthHandler() http.Handler {
 
 type limitArgs struct {
 	Key      string `json:"key"`
-	Capacity int32  `json:"capacity"`
+	Capacity int64  `json:"capacity"`
 	Interval int32  `json:"interval"`
 	Unit     string `json:"unit"`
 }
 
-func limitHandler(logger *slog.Logger, service *Service) http.Handler {
+func limitHandler(logger *slog.Logger, s *service.Service) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			select {
@@ -110,7 +110,7 @@ func limitHandler(logger *slog.Logger, service *Service) http.Handler {
 				// logger.Info("json.Unmarshal", "duration", duration)
 
 				// Call the service layer
-				result, err := service.Limit(r.Context(), args.Key, args.Capacity, args.Interval, args.Unit)
+				result, err := s.Limit(r.Context(), args.Key, args.Capacity, args.Interval, args.Unit)
 				if err != nil {
 					if err.Error() == "request canceled" {
 						logger.Info("request canceled")
@@ -143,11 +143,11 @@ func loggingMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-func NewServer(logger *slog.Logger, service *Service) http.Handler {
+func NewServer(logger *slog.Logger, s *service.Service) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.Handle("/api/v1/health", loggingMiddleware(logger, healthHandler()))
-	mux.Handle("/api/v1/limit", loggingMiddleware(logger, limitHandler(logger, service)))
+	mux.Handle("/api/v1/limit", loggingMiddleware(logger, limitHandler(logger, s)))
 
 	return mux
 }
@@ -167,8 +167,8 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	config := loadConfig(getenv)
 
 	logger := slog.New(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: config.LogLevel}))
-	service := NewLimiterService(config.Engine)
-	server := NewServer(logger, service)
+	s := service.NewLimiterService(config.Engine)
+	server := NewServer(logger, s)
 
 	// Take note of the timeouts: this makes the server more robust and less susceptible to attacks
 	httpServer := &http.Server{
@@ -206,6 +206,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		// Don't forget to call cancel to release resources associated with the shutdownCtx
 		defer cancel()
 
+		slog.Info("Shutting down http server")
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			slog.Error("error shutting down http server: %v\n", err)
 		}

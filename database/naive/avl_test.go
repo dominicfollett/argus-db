@@ -16,24 +16,24 @@ func (node *Node) avlHeightTestHelper(t *testing.T) int32 {
 		return -1
 	}
 
-	left_height := node.left.avlHeightTestHelper(t)
-	right_height := node.right.avlHeightTestHelper(t)
+	leftHeight := node.left.avlHeightTestHelper(t)
+	rightHeight := node.right.avlHeightTestHelper(t)
 
-	expected_height := 1 + max(left_height, right_height)
+	expectedHeight := 1 + max(leftHeight, rightHeight)
 
-	if absInt32(expected_height-node.getHeight()) != 0 {
+	if absInt32(expectedHeight-node.getHeight()) != 0 {
 		t.Errorf(
 			"%s: Difference between expected height: %d, and actual height: %d, is greater than zero! "+
 				"Left height: %d, Right height: %d",
 			node.key,
-			expected_height,
+			expectedHeight,
 			node.getHeight(),
-			left_height,
-			right_height,
+			leftHeight,
+			rightHeight,
 		)
 	}
 
-	return expected_height
+	return expectedHeight
 }
 
 func TestAVL(t *testing.T) {

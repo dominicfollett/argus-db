@@ -72,18 +72,18 @@ func (node *Node) searchBST(parentLock *sync.Mutex, key string) *Node {
 }
 
 // updateHeight atomically updates the height of the node based on the height of its left and right children.
-func (node *Node) updateHeight(left_height int32, right_height int32) {
+func (node *Node) updateHeight(leftHeight int32, rightHeight int32) {
 
-	old_height := node.getHeight()
-	new_height := 1 + max(left_height, right_height)
+	oldHeight := node.getHeight()
+	newHeight := 1 + max(leftHeight, rightHeight)
 
-	for new_height > old_height {
-		if node.height.CompareAndSwap(old_height, new_height) {
+	for newHeight > oldHeight {
+		if node.height.CompareAndSwap(oldHeight, newHeight) {
 			break
 		}
 
 		// Something wrote to height before this thread could therefore atomic read the latest height
-		old_height = node.getHeight()
+		oldHeight = node.getHeight()
 	}
 }
 
@@ -133,8 +133,8 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string) int32 {
 		return node.getHeight()
 	}
 
-	var left_height int32
-	var right_height int32
+	var leftHeight int32
+	var rightHeight int32
 
 	if key < node.key {
 		if node.left == nil {
@@ -147,10 +147,10 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string) int32 {
 			node.lock.Unlock()
 			return node.getHeight()
 		} else {
-			right_height = node.right.getHeight()
+			rightHeight = node.right.getHeight()
 
 			// node.lock will be released in the recursive call
-			left_height = node.left.insertBST(&node.lock, key)
+			leftHeight = node.left.insertBST(&node.lock, key)
 		}
 	}
 
@@ -165,16 +165,16 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string) int32 {
 			node.lock.Unlock()
 			return node.getHeight()
 		} else {
-			left_height = node.left.getHeight()
+			leftHeight = node.left.getHeight()
 
 			// node.lock will be released in the recursive call
-			right_height = node.right.insertBST(&node.lock, key)
+			rightHeight = node.right.insertBST(&node.lock, key)
 		}
 	}
 
-	node.updateHeight(left_height, right_height)
+	node.updateHeight(leftHeight, rightHeight)
 
 	// TODO: Calculate balance factor, and atomically update the global counter
-	// balance_factor := absInt32(left_height - right_height)
+	// balanceFactor := absInt32(leftHeight - rightHeight)
 	return node.getHeight()
 }

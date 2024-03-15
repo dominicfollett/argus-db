@@ -39,25 +39,26 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 	// PART 1 -----------------------------------------------------------------
 	// Insert/Search and compute the result if it exists in the BST
 
-	// TODO Hack
-	db.bst.Insert(key)
-
-	node := db.bst.Search(key)
+	var node *Node
+	node = db.bst.Search(key)
 
 	if node == nil {
-		return false, nil
+		db.bst.Insert(key)
+		node = db.bst.Search(key)
 	}
 
-	// We must absolutely unlock the node before we return
-	defer node.lock.Unlock()
-
 	data, result, err := db.callback(node.data, params)
+	if err != nil {
+		// We must absolutely unlock the node before we return
+		node.lock.Unlock()
+		return false, err
+	}
 
 	node.data = data
 
-	if err != nil {
-		return false, err
-	}
+	// We must absolutely unlock the node before we return
+	node.lock.Unlock()
+
 	return result, nil
 
 	// PART 2 -----------------------------------------------------------------
