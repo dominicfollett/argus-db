@@ -1,8 +1,8 @@
 # Argus
 
-<div style="display: flex; justify-content: center;">
+<center>
     <img src="argusdb.png" alt="Project Image" width="50%">
-</div>
+</center>
 
 ## Description
 
