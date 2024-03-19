@@ -6,10 +6,11 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 )
 
 // TestBSTHeightCalulcations tests the height of the BST after concurrent inserts.
-func TestBST(t *testing.T) {
+func TestInsertBST(t *testing.T) {
 	bst := NewBST()
 
 	var wg sync.WaitGroup
@@ -47,7 +48,7 @@ func TestBST(t *testing.T) {
 	}
 }
 
-func TestBSTWithRandomKeys(t *testing.T) {
+func TestInsertBSTWithRandomKeys(t *testing.T) {
 
 	keys := []string{"T", "X", "G", "L", "E", "Q", "M", "H", "O", "I", "B", "Z", "A", "V", "S", "R", "K", "P", "C", "D", "U", "F", "N", "W", "Y", "J"}
 	rand.Shuffle(len(keys), func(i, j int) { keys[i], keys[j] = keys[j], keys[i] })
@@ -117,4 +118,46 @@ func (node *Node) heightTestHelper(t *testing.T, count int) (int32, int) {
 	}
 
 	return expectedHeight, count
+}
+
+func TestInSearchBST(t *testing.T) {
+	bst := NewBST()
+
+	var wg sync.WaitGroup
+	const numInserts = 100
+	const concurrencyLevel = 10
+	const duplicateEvery = 5
+
+	for i := 0; i < concurrencyLevel; i++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+			for j := 0; j < numInserts; j++ {
+				var key string
+				if j%duplicateEvery == 0 {
+					key = strconv.Itoa(j)
+				} else {
+					key = strconv.Itoa(goroutineID*numInserts + j)
+				}
+				node := bst.InSearch(key)
+
+				time.Sleep(time.Duration(rand.Intn(100)) * time.Nanosecond)
+
+				node.lock.Unlock()
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	maxPossibleSize := numInserts*concurrencyLevel - ((concurrencyLevel - 1) * (numInserts / duplicateEvery))
+	actualSize := len(bst.GetKeys())
+	if actualSize != maxPossibleSize {
+		t.Errorf("Expected BST size to be equal to %d, got %d", maxPossibleSize, actualSize)
+	}
+
+	// Check the height of each node
+	_, count := bst.root.heightTestHelper(t, 0)
+	if count != 0 {
+		t.Errorf("Total differences %d", count)
+	}
 }

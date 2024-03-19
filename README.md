@@ -8,11 +8,16 @@
 
 A scalable rate limiter service written in Golang.
 
-## Features
+## Exmaple Usage
 
-- Feature 1
-- Feature 2
-- Feature 3
+```
+curl -X POST -H "Content-Type: application/json" -d '{
+    "key": "my_key",
+    "capacity": 1,
+    "interval": 5,
+    "unit": "s"
+}' http://localhost:8123/api/v1/limit
+```
 
 ## Installation
 

@@ -31,7 +31,7 @@ func min(a int64, b int64) int64 {
 	return b
 }
 
-// TODO: This is a shit show, CLEAN
+// callback is the function that is passed to the database layer
 func callback(data any, params any) (any, any, error) {
 	p := params.(*Params)
 
