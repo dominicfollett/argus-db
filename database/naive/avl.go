@@ -3,7 +3,6 @@
 package naive
 
 import (
-	"sync"
 	"sync/atomic"
 )
 
@@ -109,7 +108,6 @@ func (root *Node) insertAVL(key string, data any) *Node {
 	if root == nil {
 		return &Node{
 			key:    key,
-			lock:   sync.Mutex{},
 			data:   data,
 			height: atomic.Int32{}, // Leaves have a height of 0
 		}

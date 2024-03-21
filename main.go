@@ -181,9 +181,9 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 
 	// ListenAndServe is a blocking call so we need to run it in a goroutine
 	go func() {
-		logger.Info("Server is listening on " + httpServer.Addr)
+		logger.Info("server is listening on " + httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Could not listen on %s: %v", httpServer.Addr, err)
+			logger.Error("could not listen on:", "address", httpServer.Addr, "error", err)
 		}
 	}()
 
@@ -206,9 +206,9 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		// Don't forget to call cancel to release resources associated with the shutdownCtx
 		defer cancel()
 
-		slog.Info("Shutting down http server")
+		logger.Info("shutting down http server")
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			slog.Error("error shutting down http server: %v\n", err)
+			logger.Error("error shutting down http server", "error", err)
 		}
 	}()
 	wg.Wait()

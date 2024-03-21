@@ -8,8 +8,7 @@
 
 A scalable rate limiter service written in Golang.
 
-## Exmaple Usage
-
+## Example Usage
 ```
 curl -X POST -H "Content-Type: application/json" -d '{
     "key": "my_key",

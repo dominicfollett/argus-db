@@ -4,6 +4,7 @@ import "github.com/dominicfollett/argus-db/database/naive"
 
 type Database interface {
 	Calculate(key string, params any) (any, error)
+	Shutdown()
 }
 
 func NewDatabase(engine string, callback func(data any, params any) (any, any, error)) Database {
