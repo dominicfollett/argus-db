@@ -3,6 +3,7 @@ package naive
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 type NaiveDB struct {
@@ -11,6 +12,7 @@ type NaiveDB struct {
 	callback   func(data any, params any) (any, any, error)
 	avlChannel chan Message
 	rwLock     *sync.RWMutex
+	totalOps   *atomic.Int64
 }
 
 func NewDB(callback func(data any, params any) (any, any, error)) *NaiveDB {
@@ -32,12 +34,16 @@ func NewDB(callback func(data any, params any) (any, any, error)) *NaiveDB {
 		fmt.Println("Channel closed. Exiting AVL goroutine.")
 	}()
 
+	totalOps := atomic.Int64{}
+	totalOps.Store(1)
+
 	return &NaiveDB{
 		bst:        bst,
 		avl:        avl,
 		callback:   callback,
 		avlChannel: avlChannel,
 		rwLock:     rwLock,
+		totalOps:   &totalOps,
 	}
 }
 
@@ -79,6 +85,9 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 
 	// Publish the message to the avlChannel for the goroutine to pick up
 	db.avlChannel <- Message{key: key, data: data}
+
+	// Increment the totalOps counter
+	db.totalOps.Add(1)
 
 	return result, nil
 }

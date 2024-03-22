@@ -7,16 +7,20 @@ import (
 	"sync/atomic"
 )
 
+var BF_THRESHOLD int32 = 5
+
 // BST represents a BST tree with a pointer to the root node.
 type BST struct {
-	root     *Node      // Root points to the root node of the AVL tree.
-	rootLock sync.Mutex // Lock for the root node
+	root             *Node      // Root points to the root node of the AVL tree.
+	rootLock         sync.Mutex // Lock for the root node
+	balanceFactorSum *atomic.Int64
 }
 
 // NewAVL creates and returns a new instance of an AVL tree.
 func NewBST() *BST {
 	return &BST{
-		rootLock: sync.Mutex{},
+		rootLock:         sync.Mutex{},
+		balanceFactorSum: &atomic.Int64{},
 	}
 }
 
@@ -196,14 +200,18 @@ func (tree *BST) InSearch(key string) *Node {
 	}
 
 	// tree.rootLock will be released through hand-over-hand locking
-	_, node := tree.root.inSearchBST(&tree.rootLock, key)
+	_, node, balanceFactor := tree.root.inSearchBST(&tree.rootLock, key)
+
+	// Atomically update the global balance factor sum
+	tree.balanceFactorSum.Add(int64(balanceFactor))
+
 	return node
 }
 
 // inSearchBST retrieves the node with the given key from the BST tree. If the node does not exist, it creates a new node.
 // This function is thread-safe and uses hand-over-hand locking to ensure that the tree is properly
 // locked during the search process.
-func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node) {
+func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node, int32) {
 
 	// Try and obtain this node's lock
 	node.lock.Lock()
@@ -215,12 +223,19 @@ func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node)
 		// Might as well update the height of this node
 		node.updateHeight(node.left.getHeight(), node.right.getHeight())
 
-		return node.getHeight(), node
+		// Calculate and add the balance factor
+		balanceFactor := absInt32(node.left.getHeight() - node.right.getHeight())
+		if balanceFactor < BF_THRESHOLD {
+			balanceFactor = 0
+		}
+
+		return node.getHeight(), node, balanceFactor
 	}
 
 	var leftHeight int32
 	var rightHeight int32
 	var returnedNode *Node
+	var balanceFactor int32
 
 	if key < node.key {
 		if node.left == nil {
@@ -233,12 +248,12 @@ func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node)
 
 			// We have to release the lock on this node because we're done with it
 			node.lock.Unlock()
-			return node.getHeight(), node.left
+			return node.getHeight(), node.left, 0
 		} else {
 			rightHeight = node.right.getHeight()
 
 			// node.lock will be released in the recursive call
-			leftHeight, returnedNode = node.left.inSearchBST(&node.lock, key)
+			leftHeight, returnedNode, balanceFactor = node.left.inSearchBST(&node.lock, key)
 		}
 	}
 
@@ -253,18 +268,22 @@ func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node)
 
 			// We have to release the lock on this node because we're done with it
 			node.lock.Unlock()
-			return node.getHeight(), node.right
+			return node.getHeight(), node.right, 0
 		} else {
 			leftHeight = node.left.getHeight()
 
 			// node.lock will be released in the recursive call
-			rightHeight, returnedNode = node.right.inSearchBST(&node.lock, key)
+			rightHeight, returnedNode, balanceFactor = node.right.inSearchBST(&node.lock, key)
 		}
 	}
 
 	node.updateHeight(leftHeight, rightHeight)
 
-	// TODO: Calculate balance factor, and atomically update the global counter
-	// balanceFactor := absInt32(leftHeight - rightHeight)
-	return node.getHeight(), returnedNode
+	// Calculate balance factor
+	balanceFactorPrime := absInt32(leftHeight - rightHeight)
+	if balanceFactorPrime < BF_THRESHOLD {
+		balanceFactorPrime = 0
+	}
+
+	return node.getHeight(), returnedNode, balanceFactor + balanceFactorPrime
 }
