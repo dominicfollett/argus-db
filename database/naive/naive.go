@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type NaiveDB struct {
@@ -15,36 +16,65 @@ type NaiveDB struct {
 	totalOps   *atomic.Int64
 }
 
+// TODO: Add logging
 func NewDB(callback func(data any, params any) (any, any, error)) *NaiveDB {
-	// We need a thread that monitors the BST's balance factor metric
-	// If the balance factor is too high, we need to block, swap out the BST and AVL trees, and instantiate a new AVL tree
+	totalOps := atomic.Int64{}
+	totalOps.Store(1)
 
-	bst := NewBST()
-	avl := NewAVL()
-	avlChannel := make(chan Message)
-	rwLock := &sync.RWMutex{}
+	db := &NaiveDB{
+		bst:        NewBST(),
+		avl:        NewAVL(),
+		callback:   callback,
+		avlChannel: make(chan Message),
+		rwLock:     &sync.RWMutex{},
+		totalOps:   &totalOps,
+	}
 
+	// Start the AVL goroutine
 	go func() {
 		// We'll use channel closure to signal the end of the go routine
-		for message := range avlChannel {
-			rwLock.RLock()
-			avl.Insert(message.key, message.data)
-			rwLock.RUnlock()
+		for message := range db.avlChannel {
+			db.rwLock.RLock()
+			db.avl.Insert(message.key, message.data)
+			db.rwLock.RUnlock()
 		}
 		fmt.Println("Channel closed. Exiting AVL goroutine.")
 	}()
 
-	totalOps := atomic.Int64{}
-	totalOps.Store(1)
+	// Start the switchover goroutine
+	// Add context to this goroutine so that it can be stopped
+	go func() {
+		for {
+			triggerMetric := float64(db.bst.balanceFactorSum.Load()) / float64(db.totalOps.Load())
 
-	return &NaiveDB{
-		bst:        bst,
-		avl:        avl,
-		callback:   callback,
-		avlChannel: avlChannel,
-		rwLock:     rwLock,
-		totalOps:   &totalOps,
-	}
+			if triggerMetric > 5 {
+				// Obtain the r/w lock to ensure everyone's work is done
+				db.rwLock.Lock()
+
+				// Swap out the BST and AVL trees
+				// What happens to the old BST?
+				db.bst.root = db.avl.root
+
+				// Create a new AVL tree
+				db.avl = NewAVL()
+
+				// TODO: is there a way to clear the avlChannel?
+
+				// Reset the balance factor sum
+				db.bst.balanceFactorSum.Store(0)
+
+				// Reset the totalOps counter
+				db.totalOps.Store(1)
+
+				// Release the r/w lock
+				db.rwLock.Unlock()
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
+	return db
 }
 
 // Shutdown closes the AVL channel and stops the AVL goroutine and ...
@@ -88,6 +118,8 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 
 	// Increment the totalOps counter
 	db.totalOps.Add(1)
+
+	fmt.Println("Total operations:", db.totalOps.Load())
 
 	return result, nil
 }

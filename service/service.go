@@ -59,7 +59,8 @@ func callback(data any, params any) (any, any, error) {
 		refillTokens = float64(elapsedTime.Microseconds()) * refillRate
 	}
 
-	if refillTokens > 0 {
+	// TODO: ideally we should cast this one time only
+	if int64(refillTokens) > 0 {
 		d.lastRefilled = time.Now()
 		d.availableTokens = min(p.capacity, d.availableTokens+int64(refillTokens))
 	}
