@@ -1,6 +1,7 @@
 package naive
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -8,12 +9,13 @@ import (
 )
 
 type NaiveDB struct {
-	bst        *BST
-	avl        *AVL
-	callback   func(data any, params any) (any, any, error)
-	avlChannel chan Message
-	rwLock     *sync.RWMutex
-	totalOps   *atomic.Int64
+	bst         *BST
+	avl         *AVL
+	callback    func(data any, params any) (any, any, error)
+	avlChannel  chan Message
+	rwLock      *sync.RWMutex
+	totalOps    *atomic.Int64
+	stopRoutine context.CancelFunc
 }
 
 // TODO: Add logging
@@ -21,18 +23,23 @@ func NewDB(callback func(data any, params any) (any, any, error)) *NaiveDB {
 	totalOps := atomic.Int64{}
 	totalOps.Store(1)
 
+	context, cancel := context.WithCancel(context.Background())
+
 	db := &NaiveDB{
-		bst:        NewBST(),
-		avl:        NewAVL(),
-		callback:   callback,
-		avlChannel: make(chan Message),
-		rwLock:     &sync.RWMutex{},
-		totalOps:   &totalOps,
+		bst:         NewBST(),
+		avl:         NewAVL(),
+		callback:    callback,
+		avlChannel:  make(chan Message),
+		rwLock:      &sync.RWMutex{},
+		totalOps:    &totalOps,
+		stopRoutine: cancel,
 	}
 
 	// Start the AVL goroutine
 	go func() {
+		fmt.Println("Starting AVL goroutine")
 		// We'll use channel closure to signal the end of the go routine
+		// TODO: consider using a context here instead?
 		for message := range db.avlChannel {
 			db.rwLock.RLock()
 			db.avl.Insert(message.key, message.data)
@@ -44,30 +51,39 @@ func NewDB(callback func(data any, params any) (any, any, error)) *NaiveDB {
 	// Start the switchover goroutine
 	// Add context to this goroutine so that it can be stopped
 	go func() {
+		fmt.Println("Starting switchover routine")
 		for {
-			triggerMetric := float64(db.bst.balanceFactorSum.Load()) / float64(db.totalOps.Load())
+			select {
+			case <-context.Done():
+				fmt.Println("Switchover routine stopped. Exiting")
+				return
+			default:
+				triggerMetric := float64(db.bst.balanceFactorSum.Load()) / float64(db.totalOps.Load())
 
-			if triggerMetric > 5 {
-				// Obtain the r/w lock to ensure everyone's work is done
-				db.rwLock.Lock()
+				if triggerMetric > 5 {
+					fmt.Printf("[switchover routine] Trigger metric: %f\n", triggerMetric)
 
-				// Swap out the BST and AVL trees
-				// What happens to the old BST?
-				db.bst.root = db.avl.root
+					// Obtain the r/w lock to ensure everyone's work is done
+					db.rwLock.Lock()
 
-				// Create a new AVL tree
-				db.avl = NewAVL()
+					// Swap out the BST and AVL trees
+					// What happens to the old BST?
+					db.bst.root = db.avl.root
 
-				// TODO: is there a way to clear the avlChannel?
+					// Create a new AVL tree
+					db.avl = NewAVL()
 
-				// Reset the balance factor sum
-				db.bst.balanceFactorSum.Store(0)
+					// TODO: is there a way to clear the avlChannel?
 
-				// Reset the totalOps counter
-				db.totalOps.Store(1)
+					// Reset the balance factor sum
+					db.bst.balanceFactorSum.Store(0)
 
-				// Release the r/w lock
-				db.rwLock.Unlock()
+					// Reset the totalOps counter
+					db.totalOps.Store(1)
+
+					// Release the r/w lock
+					db.rwLock.Unlock()
+				}
 			}
 
 			time.Sleep(1 * time.Second)
@@ -89,6 +105,7 @@ func (db *NaiveDB) Shutdown() {
 
 	// Signal to the switchover goroutine to stop
 	// Perhaps context.WithTimeout() and context.Done() would be useful here
+	db.stopRoutine()
 
 	// Do we need to wait for the goroutine to finish?
 }
