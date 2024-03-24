@@ -168,7 +168,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		Handler:           http.TimeoutHandler(server, 1*time.Second, "timeout\n"),
 		ReadTimeout:       500 * time.Millisecond,
 		ReadHeaderTimeout: 500 * time.Millisecond,
-		IdleTimeout:       1 * time.Second,
+		IdleTimeout:       2 * time.Second, // TODO: tune
 	}
 
 	go func() {

@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var TRIGGER_THRESHOLD float64 = 30
+
 type NaiveDB struct {
 	bst         *BST
 	avl         *AVL
@@ -74,12 +76,12 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 			default:
 				triggerMetric := float64(db.bst.balanceFactorSum.Load()) / float64(db.totalOps.Load())
 
-				if triggerMetric > 5 {
-					db.logger.Debug("switchover routine, threshold exceeded", "trigger metric", triggerMetric)
+				if triggerMetric > TRIGGER_THRESHOLD {
+					db.logger.Info("switchover routine, threshold exceeded", "trigger metric", triggerMetric)
 
 					// Obtain the r/w lock to ensure everyone's work is done
 					db.rwLock.Lock()
-					db.logger.Debug("switchover routine, naive db lock obtained")
+					db.logger.Info("switchover routine, naive db lock obtained")
 
 					// Swap out the BST and AVL trees
 					// What happens to the old BST?

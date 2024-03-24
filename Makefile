@@ -2,7 +2,7 @@ ARCH := arm64
 OUT_DIR := bin
 BINARY := argusdb
 
-.PHONY: all test build clean
+.PHONY: all test build clean dev
 
 all: test build
 
