@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var TRIGGER_THRESHOLD float64 = 10
+var TRIGGER_THRESHOLD float64 = 30
 
 type NaiveDB struct {
 	bst         *BST
@@ -16,6 +16,7 @@ type NaiveDB struct {
 	callback    func(data any, params any) (any, any, error)
 	avlChannel  chan Message
 	rwLock      *sync.RWMutex
+	avlLock     *sync.Mutex
 	totalOps    *atomic.Int64
 	stopRoutine context.CancelFunc
 	wg          *sync.WaitGroup
@@ -36,6 +37,7 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 		avl:         NewAVL(),
 		callback:    callback,
 		avlChannel:  make(chan Message),
+		avlLock:     &sync.Mutex{},
 		rwLock:      &sync.RWMutex{},
 		totalOps:    &totalOps,
 		stopRoutine: cancel,
@@ -51,13 +53,13 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 		db.logger.Debug("Starting AVL goroutine")
 		// We'll use channel closure to signal the end of the go routine
 		for message := range db.avlChannel {
-			db.rwLock.RLock()
+			db.avlLock.Lock()
 
 			db.avl.Insert(message.key, message.data)
 			db.logger.Debug("avl goroutine, successfully inserted", "key", message.key)
 
 			// TODO: consider running a function that removes records that are obsolete
-			db.rwLock.RUnlock()
+			db.avlLock.Unlock()
 		}
 		db.logger.Debug("Channel closed. Exiting AVL goroutine.")
 	}()
@@ -79,9 +81,12 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 				if triggerMetric > TRIGGER_THRESHOLD {
 					db.logger.Info("switchover routine, threshold exceeded", "trigger metric", triggerMetric)
 
-					// Obtain the r/w lock to ensure everyone's work is done
+					// Obtain the r/w lock to pause calculations
 					db.rwLock.Lock()
-					db.logger.Info("switchover routine, naive db lock obtained")
+
+					// Obtain the avl lock to pause avl inserts
+					db.avlLock.Lock()
+					db.logger.Info("switchover routine, naive db locks obtained")
 
 					// Swap out the BST and AVL trees
 					// What happens to the old BST?
@@ -102,7 +107,9 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 
 					// Release the r/w lock
 					db.rwLock.Unlock()
-					db.logger.Debug("switchover routine, naive db lock released")
+					// Release the avl lock
+					db.avlLock.Unlock()
+					db.logger.Info("switchover routine, naive db locks released")
 				}
 			}
 
@@ -137,7 +144,6 @@ func (db *NaiveDB) Shutdown() {
 }
 
 func (db *NaiveDB) Calculate(key string, params any) (any, error) {
-
 	db.rwLock.RLock()
 	// We must absolutely unlock the r/w lock before we return
 	defer db.rwLock.RUnlock()
@@ -151,6 +157,7 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 	// Apply the callback defined by the user of this DB
 	data, result, err := db.callback(node.data, params)
 	if err != nil {
+		db.logger.Info("naive db calculate, callback function failed", "error", err)
 		return false, err
 	}
 	db.logger.Debug("naive db calculate, callback function successfully applied")

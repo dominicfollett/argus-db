@@ -14,24 +14,36 @@ to provide eventual log(n) guarantees for tree accesses.
 
 ## Known Issues
 
-Occassionally under heavy concurrent requests, a Read Lock is not being correctly released leading to starvation
+- [RESOLVED] Occassionally under heavy concurrent requests, a Read Lock is not being correctly released leading to starvation
 of the switchover go routine that handle tree swapping.
 
 ## Todos
 
-- Resolve the deadlock issue.
 - The metric used for triggering a tree swap is pretty dubious, so that needs a rethink
+- Add a function to periodically remove stale records
 - Perform profiling and implement optimizations (e.g. custom json decoding among others) 
-- Capture some performance benchmarks
 - Implement an alternate DB engine using perhaps a thread-safe hash table.
 - And lastly, there's a bit of cleanup/refactoring needed
 
 ## Performance Benchmarks
 
-Incomming
+I used Jmeter to exercise Argus on an 8-core, 16G Macbook. There's no connection sharing/reuse among threads in Jmeter.
+
+### Test 1
+10 Threads, 50 000 Iterations GOMAXPROCS=8 No Connection Pooling
+<p align="center">
+    <img src="perf1.png" alt="Perf test 1" width="100%">
+</p>
+
+### Test 2
+100 Threads, 50 000 Iterations GOMAXPROCS=8 No Connection Pooling
+<p align="center">
+    <img src="perf2.png" alt="Perf test 2" width="100%">
+</p>
+Memory usage peaked at 1.6G
 
 ## Example Usage
-```
+```sh
 curl -X POST -H "Content-Type: application/json" -d '{
     "key": "my_key",
     "capacity": 1,
