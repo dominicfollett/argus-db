@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var TRIGGER_THRESHOLD float64 = 30
+var TRIGGER_THRESHOLD float64 = 10
 
 type NaiveDB struct {
 	bst         *BST
@@ -164,7 +164,7 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 
 	// Increment the totalOps counter
 	db.totalOps.Add(1)
-
 	db.logger.Debug("naive db calculate", "total operations", db.totalOps.Load())
+
 	return result, nil
 }
