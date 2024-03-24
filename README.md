@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/dominicfollett/argus-db.svg?style=svg)](https://circleci.com/gh/dominicfollett/argus-db)
+
 # Argus
 
 <p align="center">
