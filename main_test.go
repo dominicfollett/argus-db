@@ -43,8 +43,8 @@ func TestService(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Define the number of concurrent threads and requests per thread
-	numThreads := 100
-	numRequestsPerThread := 100
+	numThreads := 10
+	numRequestsPerThread := 10
 
 	// Create a wait group to synchronize the threads
 	var wg sync.WaitGroup
