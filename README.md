@@ -18,6 +18,7 @@ of the switchover go routine that handle tree swapping.
 ## Todos
 
 - Resolve the deadlock issue.
+- The metric used for triggering a tree swap is pretty dubious, so that needs a rethink
 - Perform profiling and implement optimizations (e.g. custom json decoding among others) 
 - Capture some performance benchmarks
 - Implement an alternate DB engine using perhaps a thread-safe hash table.
