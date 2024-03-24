@@ -33,7 +33,7 @@ var levelMap = map[string]slog.Level{
 func loadConfig(getenv func(string) string) *Config {
 
 	config := &Config{
-		Host:     "localhost",
+		Host:     "0.0.0.0",
 		Port:     "8123",
 		LogLevel: slog.LevelInfo,
 		Engine:   "naive",
@@ -147,27 +147,19 @@ func NewServer(logger *slog.Logger, s *service.Service) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.Handle("/api/v1/health", loggingMiddleware(logger, healthHandler()))
-	mux.Handle("/api/v1/limit", loggingMiddleware(logger, limitHandler(logger, s)))
+	mux.Handle("/api/v1/limit", limitHandler(logger, s))
 
 	return mux
 }
 
 func run(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
-	// Create a copy of the parent context that is marked done (its Done channel is closed) when
-	// the os.Interrupt signal arrives. This prevents the program from immediately exiting when the os.Interrupt is received
-	// which would prevent us from shutting down the server gracefully. "The stop function [cancel] unregisters the signal
-	// behavior, which restores the default behavior for a given signal. For example, the default
-	// behavior of a Go program receiving os.Interrupt is to exit. Calling NotifyContext(parent, os.Interrupt) will change
-	// the behavior to cancel the returned context. Future interrupts received will not trigger the default (exit) behavior
-	// until the returned stop function is called." In other words, the stop function cancels the context and restores the
-	// default behavior of os.Interrupt on the parent context.
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 
 	config := loadConfig(getenv)
 
 	logger := slog.New(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: config.LogLevel}))
-	s := service.NewLimiterService(config.Engine)
+	s := service.NewLimiterService(config.Engine, logger)
 	server := NewServer(logger, s)
 
 	// Take note of the timeouts: this makes the server more robust and less susceptible to attacks
@@ -179,7 +171,6 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		IdleTimeout:       1 * time.Second,
 	}
 
-	// ListenAndServe is a blocking call so we need to run it in a goroutine
 	go func() {
 		logger.Info("server is listening on " + httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -192,12 +183,8 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 
 	go func() {
 		defer wg.Done()
-		// <-ctx.Done() is used within a goroutine to wait for a signal indicating that a context
-		// (ctx) has been canceled or has expired. The ctx.Done() method returns a channel that
-		// is closed when the context is canceled or when its deadline expires, signaling to the
-		// goroutine that it should stop its work and exit.
-		// This is a blocking call
-		// <- == "listen on" and ctx.Done() == "the channel to listen on", i.e. block until the channel is closed
+
+		// Wait for cancel signal
 		<-ctx.Done()
 
 		// Make a new context for the Shutdown because the parent context has already been canceled
@@ -210,6 +197,9 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			logger.Error("error shutting down http server", "error", err)
 		}
+
+		logger.Info("shutting down rate limiter service")
+		s.Shutdown()
 	}()
 	wg.Wait()
 

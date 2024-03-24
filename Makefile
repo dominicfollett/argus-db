@@ -14,3 +14,6 @@ build:
 
 clean:
 	rm -rf $(OUT_DIR)
+
+dev:
+	docker-compose up --build

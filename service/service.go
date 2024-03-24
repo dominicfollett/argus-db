@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/dominicfollett/argus-db/database"
@@ -21,7 +22,8 @@ type Params struct {
 }
 
 type Service struct {
-	Database database.Database
+	database database.Database
+	logger   *slog.Logger
 }
 
 func min(a int64, b int64) int64 {
@@ -73,10 +75,15 @@ func callback(data any, params any) (any, any, error) {
 	return d, allowed, nil
 }
 
-func NewLimiterService(engine string) *Service {
+func (s *Service) Shutdown() {
+	s.database.Shutdown()
+}
+
+func NewLimiterService(engine string, logger *slog.Logger) *Service {
 
 	return &Service{
-		Database: database.NewDatabase(engine, callback),
+		database: database.NewDatabase(engine, callback, logger),
+		logger:   logger,
 	}
 }
 
@@ -85,11 +92,11 @@ func (s *Service) Limit(ctx context.Context, key string, capacity int64, interva
 	case <-ctx.Done():
 		return "", fmt.Errorf("request canceled")
 	default:
-		result, err := s.Database.Calculate(key, &Params{capacity, interval, unit})
+		result, err := s.database.Calculate(key, &Params{capacity, interval, unit})
 
 		if err != nil {
-			// TODO
-			return "", err
+			s.logger.Error("could not calculate rate limit", "error", err)
+			return "UNDETERMINED", err
 		}
 
 		if result.(bool) {

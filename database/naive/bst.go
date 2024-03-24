@@ -3,7 +3,6 @@
 package naive
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -205,8 +204,6 @@ func (tree *BST) InSearch(key string) *Node {
 
 	// Atomically update the global balance factor sum
 	tree.balanceFactorSum.Add(int64(balanceFactor))
-
-	fmt.Printf("Balance factor sum: %d\n", tree.balanceFactorSum.Load())
 
 	return node
 }
