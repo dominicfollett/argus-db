@@ -32,6 +32,10 @@ func (root *Node) deleteAVL(key string) *Node {
 	}
 
 	if root.key == key {
+		if root.left == nil && root.right == nil {
+			return nil
+		}
+
 		if root.left == nil {
 			return root.right
 		} else if root.right == nil {

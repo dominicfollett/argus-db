@@ -67,3 +67,42 @@ func TestAVL(t *testing.T) {
 	// Check the height of each node
 	avl.root.avlHeightTestHelper(t)
 }
+
+func TestAVLDelete(t *testing.T) {
+	keys := []string{"30", "10", "50", "6", "18", "45", "58", "5", "8", "15", "44", "65", "7", "9"}
+	avl := NewAVL()
+
+	for _, k := range keys {
+		avl.Insert(k, nil)
+	}
+
+	// Add some duplicates
+	avl.Insert("50", nil)
+	avl.Insert("45", nil)
+	avl.Insert("15", nil)
+	avl.Insert("30", nil)
+
+	// Delete where node has two children
+	avl.Delete("10")
+
+	// Check the height of each node
+	avl.root.avlHeightTestHelper(t)
+
+	// Delete where node has right child only
+	avl.Delete("58")
+
+	// Check the height of each node
+	avl.root.avlHeightTestHelper(t)
+
+	// Delete where node has left child only
+	avl.Delete("45")
+
+	// Check the height of each node
+	avl.root.avlHeightTestHelper(t)
+
+	// Delete where node is a leaf
+	avl.Delete("7")
+
+	// Check the height of each node
+	avl.root.avlHeightTestHelper(t)
+}
