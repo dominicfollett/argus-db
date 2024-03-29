@@ -28,6 +28,77 @@ func (tree *AVL) GetKeys() []string {
 	return keys
 }
 
+func (tree *AVL) Delete(key string) {
+	if tree.root == nil {
+		return
+	}
+
+	if tree.root.key == key {
+		if tree.root.left == nil {
+			tree.root = tree.root.right
+		} else if tree.root.right == nil {
+			tree.root = tree.root.left
+		} else {
+			// Find node successor
+			successorNode := findAndRemoveMinimum(tree.root.right)
+			tree.root.key = successorNode.key
+			tree.root.data = successorNode.data
+		}
+
+		// rebalance the tree:
+		// calculate heights
+		// get the balance factor
+		// perform the rebalance
+
+		return
+	}
+
+	tree.root.deleteAVL(key)
+}
+
+func (root *Node) deleteAVL(key string) {
+	if root == nil {
+		return
+	}
+
+	if root.key == key {
+		// TODO: do stuff
+		return
+	}
+
+	if key < root.key {
+		root.left.deleteAVL(key)
+	} else if key > root.key {
+		root.right.deleteAVL(key)
+	}
+
+	root.height.Store(
+		1 + max(root.left.getHeight(), root.right.getHeight()),
+	)
+
+	// TODO: check for an imbalance
+
+}
+
+func findAndRemoveMinimum(root *Node) *Node {
+	if root.left != nil {
+		successorNode := findAndRemoveMinimum(root.left)
+
+		if successorNode.key == root.left.key {
+			root.left = nil
+		}
+
+		// Update the node's height
+		root.height.Store(
+			1 + max(root.left.getHeight(), root.right.getHeight()),
+		)
+
+		return successorNode
+	}
+
+	return root.left
+}
+
 // rotateRight performs a right rotation on the node.
 // This is used to rebalance the tree in case of a left-heavy imbalance.
 func (A *Node) rotateRight() *Node {
