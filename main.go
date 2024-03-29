@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -15,6 +17,16 @@ import (
 
 	"github.com/dominicfollett/argus-db/service"
 )
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
 
 type Config struct {
 	Host     string
@@ -92,6 +104,7 @@ func limitHandler(logger *slog.Logger, s *service.Service) http.Handler {
 				// Ideas: https://github.com/goccy/go-json
 				// start := time.Now()
 				var args limitArgs
+
 				buffer, err := io.ReadAll(r.Body)
 				if err != nil {
 					logger.Error("error reading request body", "error", err)
@@ -125,7 +138,6 @@ func limitHandler(logger *slog.Logger, s *service.Service) http.Handler {
 				// Write the result
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(result))
-
 			}
 		},
 	)
@@ -176,6 +188,11 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("could not listen on:", "address", httpServer.Addr, "error", err)
 		}
+	}()
+
+	// Profiling
+	go func() {
+		http.ListenAndServe(":6060", nil)
 	}()
 
 	var wg sync.WaitGroup

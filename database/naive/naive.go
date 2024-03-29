@@ -50,18 +50,22 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 	go func() {
 		defer db.wg.Done()
 
-		db.logger.Debug("Starting AVL goroutine")
+		db.logger.Info("Starting AVL goroutine")
 		// We'll use channel closure to signal the end of the go routine
 		for message := range db.avlChannel {
 			db.avlLock.Lock()
 
+			// if action == "delete" {
+			// 	db.avl.Delete(message.key)
+			// } else {
+			// 	db.avl.Insert(message.key, message.data)
+			// }
 			db.avl.Insert(message.key, message.data)
-			db.logger.Debug("avl goroutine, successfully inserted", "key", message.key)
 
 			// TODO: consider running a function that removes records that are obsolete
 			db.avlLock.Unlock()
 		}
-		db.logger.Debug("Channel closed. Exiting AVL goroutine.")
+		db.logger.Info("Channel closed. Exiting AVL goroutine.")
 	}()
 
 	// Start the switchover goroutine
@@ -69,24 +73,24 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 	go func() {
 		defer db.wg.Done()
 
-		db.logger.Debug("Starting switchover routine")
+		db.logger.Info("Starting switchover routine")
 		for {
 			select {
 			case <-context.Done():
-				db.logger.Debug("Switchover routine stopped. Exiting")
+				db.logger.Info("Switchover routine stopped. Exiting")
 				return
 			default:
 				triggerMetric := float64(db.bst.balanceFactorSum.Load()) / float64(db.totalOps.Load())
 
 				if triggerMetric > TRIGGER_THRESHOLD {
-					db.logger.Info("switchover routine, threshold exceeded", "trigger metric", triggerMetric)
+					db.logger.Debug("switchover routine, threshold exceeded", "trigger metric", triggerMetric)
 
 					// Obtain the r/w lock to pause calculations
 					db.rwLock.Lock()
 
 					// Obtain the avl lock to pause avl inserts
 					db.avlLock.Lock()
-					db.logger.Info("switchover routine, naive db locks obtained")
+					db.logger.Debug("switchover routine, naive db locks obtained")
 
 					// Swap out the BST and AVL trees
 					// What happens to the old BST?
@@ -109,6 +113,7 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 					db.rwLock.Unlock()
 					// Release the avl lock
 					db.avlLock.Unlock()
+
 					db.logger.Info("switchover routine, naive db locks released")
 				}
 			}
@@ -123,23 +128,19 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 // Shutdown closes the AVL channel to stop the AVL goroutine
 // it calls the cancel function 'stopRoutine' to tell the switchover routine to exit
 func (db *NaiveDB) Shutdown() {
-	db.logger.Debug("naive db shutdown commencing...")
-
 	// Wait until everyone has released the r/w lock / finished their operations
 	db.rwLock.Lock()
 	defer db.rwLock.Unlock()
-	db.logger.Debug("naive db lock obtained")
 
 	// Signal to the switchover goroutine to stop
-	db.logger.Debug("terminating the switchover routine")
+	db.logger.Info("terminating the switchover routine")
 	db.stopRoutine()
 
 	// Close the channel to signal the end of the goroutine
-	db.logger.Debug("terminating the avl routine")
+	db.logger.Info("terminating the avl routine")
 	close(db.avlChannel)
 
 	db.wg.Wait()
-	db.logger.Debug("naive db routines ended")
 	db.logger.Info("naive db shutdown complete")
 }
 
@@ -147,12 +148,10 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 	db.rwLock.RLock()
 	// We must absolutely unlock the r/w lock before we return
 	defer db.rwLock.RUnlock()
-	db.logger.Debug("naive db calculate, lock obtained")
 
 	node := db.bst.InSearch(key)
 	// We must absolutely unlock the node before we return
 	defer node.lock.Unlock()
-	db.logger.Debug("naive db calculate, node found")
 
 	// Apply the callback defined by the user of this DB
 	data, result, err := db.callback(node.data, params)
@@ -160,18 +159,14 @@ func (db *NaiveDB) Calculate(key string, params any) (any, error) {
 		db.logger.Info("naive db calculate, callback function failed", "error", err)
 		return false, err
 	}
-	db.logger.Debug("naive db calculate, callback function successfully applied")
 
 	// Update the node's data
 	node.data = data
 
 	// Publish the message to the avlChannel for the goroutine to pick up
 	db.avlChannel <- Message{key: key, data: data}
-	db.logger.Debug("naive db calculate, avl message published")
 
 	// Increment the totalOps counter
 	db.totalOps.Add(1)
-	db.logger.Debug("naive db calculate", "total operations", db.totalOps.Load())
-
 	return result, nil
 }
