@@ -16,12 +16,6 @@ func NewAVL() *AVL {
 	return &AVL{}
 }
 
-// Insert adds a new node with the given key and data to the AVL tree.
-// It ensures that the tree remains balanced after the insertion.
-func (tree *AVL) Insert(key string, data any) {
-	tree.root = tree.root.insertAVL(key, data)
-}
-
 // GetKeys retrieves all keys from the AVL tree in sorted descending order.
 func (tree *AVL) GetKeys() []string {
 	keys := tree.root.inorderDesc([]string{})
@@ -29,61 +23,204 @@ func (tree *AVL) GetKeys() []string {
 }
 
 func (tree *AVL) Delete(key string) {
-	if tree.root == nil {
-		return
-	}
-
-	if tree.root.key == key {
-		if tree.root.left == nil {
-			tree.root = tree.root.right
-		} else if tree.root.right == nil {
-			tree.root = tree.root.left
-		} else {
-			// Find node successor
-			successorNode := findAndRemoveMinimum(tree.root.right)
-			tree.root.key = successorNode.key
-			tree.root.data = successorNode.data
-		}
-
-		// rebalance the tree:
-		// calculate heights
-		// get the balance factor
-		// perform the rebalance
-
-		return
-	}
-
-	tree.root.deleteAVL(key)
+	tree.root = tree.root.deleteAVL(key)
 }
 
-func (root *Node) deleteAVL(key string) {
+func (root *Node) deleteAVL(key string) *Node {
 	if root == nil {
-		return
+		return nil
 	}
 
 	if root.key == key {
-		// TODO: do stuff
-		return
+		if root.left == nil {
+			return root.right
+		} else if root.right == nil {
+			return root.left
+		} else {
+			// Find node successor
+			successorNode := findAndRemoveMinimum(root.right)
+
+			// Update this node to mirror the successor
+			root.key = successorNode.key
+			root.data = successorNode.data
+
+			// Update the node's height because left or right subtree heights may have changed
+			root.height.Store(
+				1 + max(root.left.getHeight(), root.right.getHeight()),
+			)
+
+			// rebalance
+			balanceFactor := root.getBalanceFactor()
+
+			// Conditions under which balanceFactor itself would not lead to a balancing operation:
+			//  -1 =< bf <= 1
+			if -1 <= balanceFactor && balanceFactor <= 1 {
+				return root
+			}
+
+			// TODO: Optimize this
+			if balanceFactor == 2 {
+				// Left-Left ==> Right Rotation
+				if root.left.getBalanceFactor() == 1 || root.left.getBalanceFactor() == 0 {
+					root = root.rotateRight()
+				}
+
+				// Left-right ==> Left Rotation followed by Right Rotation
+				if root.left.getBalanceFactor() == -1 {
+					root.left = root.left.rotateLeft()
+					root = root.rotateRight()
+				}
+			}
+
+			if balanceFactor == -2 {
+				// Right-Right ==> Left Rotation
+				if root.right.getBalanceFactor() == -1 || root.right.getBalanceFactor() == 0 {
+					root = root.rotateLeft()
+				}
+
+				// Right-Left ==> Right Rotation followed by Left Rotation
+				if root.right.getBalanceFactor() == 1 {
+					root.right = root.right.rotateRight()
+					root = root.rotateLeft()
+				}
+			}
+
+			return root
+		}
 	}
 
 	if key < root.key {
-		root.left.deleteAVL(key)
+		root.left = root.left.deleteAVL(key)
 	} else if key > root.key {
-		root.right.deleteAVL(key)
+		root.right = root.right.deleteAVL(key)
 	}
 
+	// Update the node's height because left or right subtree heights may have changed
 	root.height.Store(
 		1 + max(root.left.getHeight(), root.right.getHeight()),
 	)
 
-	// TODO: check for an imbalance
+	// rebalance
+	balanceFactor := root.getBalanceFactor()
 
+	// Conditions under which balanceFactor itself would not lead to a balancing operation:
+	//  -1 =< bf <= 1
+	if -1 <= balanceFactor && balanceFactor <= 1 {
+		return root
+	}
+
+	// TODO: Optimize this
+	if balanceFactor == 2 {
+		// Left-Left ==> Right Rotation
+		if root.left.getBalanceFactor() == 1 || root.left.getBalanceFactor() == 0 {
+			root = root.rotateRight()
+		}
+
+		// Left-right ==> Left Rotation followed by Right Rotation
+		if root.left.getBalanceFactor() == -1 {
+			root.left = root.left.rotateLeft()
+			root = root.rotateRight()
+		}
+	}
+
+	if balanceFactor == -2 {
+		// Right-Right ==> Left Rotation
+		if root.right.getBalanceFactor() == -1 || root.right.getBalanceFactor() == 0 {
+			root = root.rotateLeft()
+		}
+
+		// Right-Left ==> Right Rotation followed by Left Rotation
+		if root.right.getBalanceFactor() == 1 {
+			root.right = root.right.rotateRight()
+			root = root.rotateLeft()
+		}
+	}
+
+	return root
+
+}
+
+// Insert adds a new node with the given key and data to the AVL tree.
+// It ensures that the tree remains balanced after the insertion.
+func (tree *AVL) Insert(key string, data any) {
+	tree.root = tree.root.insertAVL(key, data)
+}
+
+// insertAVL adds a new node with the given key and data to the tree rooted at the current node.
+// It ensures the AVL tree properties are maintained by performing necessary rotations.
+// TODO: Adjust this functions so that it need not return a node.
+func (root *Node) insertAVL(key string, data any) *Node {
+
+	if root == nil {
+		return &Node{
+			key:    key,
+			data:   data,
+			height: atomic.Int32{}, // Leaves have a height of 0
+		}
+	}
+
+	if root.key == key {
+		// Nothing further to do so we can safely return
+		return root
+	}
+
+	if key < root.key {
+		root.left = root.left.insertAVL(key, data)
+	}
+
+	if key > root.key {
+		root.right = root.right.insertAVL(key, data)
+	}
+
+	// TODO Optimize
+	// Update height
+	root.height.Store(
+		1 + max(root.left.getHeight(), root.right.getHeight()),
+	)
+
+	balanceFactor := root.getBalanceFactor()
+
+	// Conditions under which balanceFactor itself would not lead to a balancing operation:
+	//  -1 =< bf <= 1
+	if -1 <= balanceFactor && balanceFactor <= 1 {
+		return root
+	}
+
+	// TODO: Optimize this
+	if balanceFactor == 2 {
+		// Left-Left ==> Right Rotation
+		if root.left.getBalanceFactor() == 1 || root.left.getBalanceFactor() == 0 {
+			root = root.rotateRight()
+		}
+
+		// Left-right ==> Left Rotation followed by Right Rotation
+		if root.left.getBalanceFactor() == -1 {
+			root.left = root.left.rotateLeft()
+			root = root.rotateRight()
+		}
+	}
+
+	if balanceFactor == -2 {
+		// Right-Right ==> Left Rotation
+		if root.right.getBalanceFactor() == -1 || root.right.getBalanceFactor() == 0 {
+			root = root.rotateLeft()
+		}
+
+		// Right-Left ==> Right Rotation followed by Left Rotation
+		if root.right.getBalanceFactor() == 1 {
+			root.right = root.right.rotateRight()
+			root = root.rotateLeft()
+		}
+	}
+
+	return root
 }
 
 func findAndRemoveMinimum(root *Node) *Node {
 	if root.left != nil {
 		successorNode := findAndRemoveMinimum(root.left)
 
+		// Delete the successor node
 		if successorNode.key == root.left.key {
 			root.left = nil
 		}
@@ -93,10 +230,12 @@ func findAndRemoveMinimum(root *Node) *Node {
 			1 + max(root.left.getHeight(), root.right.getHeight()),
 		)
 
+		// TODO: rebalancing is not required because ...
+
 		return successorNode
 	}
 
-	return root.left
+	return root
 }
 
 // rotateRight performs a right rotation on the node.
@@ -169,74 +308,4 @@ func (A *Node) rotateLeft() *Node {
 	)
 
 	return C
-}
-
-// insertAVL adds a new node with the given key and data to the tree rooted at the current node.
-// It ensures the AVL tree properties are maintained by performing necessary rotations.
-// TODO: Adjust this functions so that it need not return a node.
-func (root *Node) insertAVL(key string, data any) *Node {
-
-	if root == nil {
-		return &Node{
-			key:    key,
-			data:   data,
-			height: atomic.Int32{}, // Leaves have a height of 0
-		}
-	}
-
-	if root.key == key {
-		// Nothing further to do so we can safely return
-		return root
-	}
-
-	if key < root.key {
-		root.left = root.left.insertAVL(key, data)
-	}
-
-	if key > root.key {
-		root.right = root.right.insertAVL(key, data)
-	}
-
-	// TODO Optimize
-	// Update height
-	root.height.Store(
-		1 + max(root.left.getHeight(), root.right.getHeight()),
-	)
-
-	balanceFactor := root.getBalanceFactor()
-
-	// Conditions under which balanceFactor itself would not lead to a balancing operation:
-	//  -1 =< bf <= 1
-	if -1 <= balanceFactor && balanceFactor <= 1 {
-		return root
-	}
-
-	// TODO: Optimize this
-	if balanceFactor == 2 {
-		// Left-Left ==> Right Rotation
-		if root.left.getBalanceFactor() == 1 || root.left.getBalanceFactor() == 0 {
-			root = root.rotateRight()
-		}
-
-		// Left-right ==> Left Rotation followed by Right Rotation
-		if root.left.getBalanceFactor() == -1 {
-			root.left = root.left.rotateLeft()
-			root = root.rotateRight()
-		}
-	}
-
-	if balanceFactor == -2 {
-		// Right-Right ==> Left Rotation
-		if root.right.getBalanceFactor() == -1 || root.right.getBalanceFactor() == 0 {
-			root = root.rotateLeft()
-		}
-
-		// Right-Left ==> Right Rotation followed by Left Rotation
-		if root.right.getBalanceFactor() == 1 {
-			root.right = root.right.rotateRight()
-			root = root.rotateLeft()
-		}
-	}
-
-	return root
 }
