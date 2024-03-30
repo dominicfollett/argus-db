@@ -7,16 +7,16 @@ import (
 	"sync/atomic"
 )
 
-var BF_THRESHOLD int32 = 5
+var BF_THRESHOLD int32 = 2
 
 // BST represents a BST tree with a pointer to the root node.
 type BST struct {
-	root             *Node      // Root points to the root node of the AVL tree.
-	rootLock         sync.Mutex // Lock for the root node
+	root             *Node
+	rootLock         sync.Mutex
 	balanceFactorSum *atomic.Int64
 }
 
-// NewAVL creates and returns a new instance of an AVL tree.
+// NewBST creates and returns a new instance of Binary Search Tree.
 func NewBST() *BST {
 	return &BST{
 		rootLock:         sync.Mutex{},
@@ -177,9 +177,6 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string) int32 {
 	}
 
 	node.updateHeight(leftHeight, rightHeight)
-
-	// TODO: Calculate balance factor, and atomically update the global counter
-	// balanceFactor := absInt32(leftHeight - rightHeight)
 	return node.getHeight()
 }
 

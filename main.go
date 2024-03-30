@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -92,6 +93,7 @@ func limitHandler(logger *slog.Logger, s *service.Service) http.Handler {
 				// Ideas: https://github.com/goccy/go-json
 				// start := time.Now()
 				var args limitArgs
+
 				buffer, err := io.ReadAll(r.Body)
 				if err != nil {
 					logger.Error("error reading request body", "error", err)
@@ -125,7 +127,6 @@ func limitHandler(logger *slog.Logger, s *service.Service) http.Handler {
 				// Write the result
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(result))
-
 			}
 		},
 	)
@@ -177,6 +178,11 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 			logger.Error("could not listen on:", "address", httpServer.Addr, "error", err)
 		}
 	}()
+
+	// Profiling
+	// go func() {
+	//	http.ListenAndServe(":6060", nil)
+	// }()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
