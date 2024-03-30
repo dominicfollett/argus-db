@@ -39,7 +39,7 @@ The request body:
 }
 ```
 uses a random string for each request. This obviously affects the lifetime of each record,
-leading to early evictions during the running of these tests and affecting.
+leading to early evictions during the running of these tests.
 
 ### Test 1
 10 Threads, 50 000 Iterations GOMAXPROCS=8 No Connection Pooling
