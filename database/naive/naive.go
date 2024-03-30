@@ -23,7 +23,6 @@ type NaiveDB struct {
 	logger      *slog.Logger
 }
 
-// TODO: Add logging
 func NewDB(callback func(data any, params any) (any, any, error), logger *slog.Logger) *NaiveDB {
 	logger.Info("initializing naive DB...")
 

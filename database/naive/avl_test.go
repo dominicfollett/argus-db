@@ -1,6 +1,3 @@
-//go:build !race
-// +build !race
-
 package naive
 
 import (
@@ -20,6 +17,12 @@ func (node *Node) avlHeightTestHelper(t *testing.T) int32 {
 	rightHeight := node.right.avlHeightTestHelper(t)
 
 	expectedHeight := 1 + max(leftHeight, rightHeight)
+
+	// Check balance factor is correct
+	balanceFactor := leftHeight - rightHeight
+	if -1 > balanceFactor || balanceFactor > 1 {
+		t.Errorf("%s: balance factor magnitude too great %d", node.key, balanceFactor)
+	}
 
 	if absInt32(expectedHeight-node.getHeight()) != 0 {
 		t.Errorf(
@@ -69,7 +72,21 @@ func TestAVL(t *testing.T) {
 }
 
 func TestAVLDelete(t *testing.T) {
-	keys := []string{"30", "10", "50", "6", "18", "45", "58", "5", "8", "15", "44", "65", "7", "9"}
+	keys := []string{"U", "R", "X", "N", "T", "W", "Y", "M", "P", "S", "V", "Z", "O", "Q"}
+
+	/*
+	    	   U
+	    	  /  \
+	    	 /    \
+	    	R      X
+	   	   /  \    / \
+	      N    T  W   Y
+	     / \   /  /    \
+	    M  P  S  V      Z
+	      / \
+	     O   Q
+	*/
+
 	avl := NewAVL()
 
 	for _, k := range keys {
@@ -77,32 +94,41 @@ func TestAVLDelete(t *testing.T) {
 	}
 
 	// Add some duplicates
-	avl.Insert("50", nil)
-	avl.Insert("45", nil)
-	avl.Insert("15", nil)
-	avl.Insert("30", nil)
+	avl.Insert("X", nil)
+	avl.Insert("Y", nil)
+	avl.Insert("V", nil)
+	avl.Insert("U", nil)
 
 	// Delete where node has two children
-	avl.Delete("10")
+	avl.Delete("R")
 
 	// Check the height of each node
 	avl.root.avlHeightTestHelper(t)
 
 	// Delete where node has right child only
-	avl.Delete("58")
+	avl.Delete("Y")
 
 	// Check the height of each node
 	avl.root.avlHeightTestHelper(t)
 
 	// Delete where node has left child only
-	avl.Delete("45")
+	avl.Delete("W")
 
 	// Check the height of each node
 	avl.root.avlHeightTestHelper(t)
 
 	// Delete where node is a leaf
-	avl.Delete("7")
+	avl.Delete("O")
 
 	// Check the height of each node
 	avl.root.avlHeightTestHelper(t)
+
+	expectedOrder := []string{"M", "N", "P", "Q", "S", "T", "U", "V", "X", "Z"}
+	result := avl.GetKeys()
+
+	for i, key := range expectedOrder {
+		if key != result[i] {
+			t.Errorf("Key mismatch: expected: %s, got: %s", key, result[i])
+		}
+	}
 }

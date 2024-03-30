@@ -53,41 +53,8 @@ func (root *Node) deleteAVL(key string) *Node {
 				1 + max(root.left.getHeight(), root.right.getHeight()),
 			)
 
-			// rebalance
-			balanceFactor := root.getBalanceFactor()
-
-			// Conditions under which balanceFactor itself would not lead to a balancing operation:
-			//  -1 =< bf <= 1
-			if -1 <= balanceFactor && balanceFactor <= 1 {
-				return root
-			}
-
-			// TODO: Optimize this
-			if balanceFactor == 2 {
-				// Left-Left ==> Right Rotation
-				if root.left.getBalanceFactor() == 1 || root.left.getBalanceFactor() == 0 {
-					root = root.rotateRight()
-				}
-
-				// Left-right ==> Left Rotation followed by Right Rotation
-				if root.left.getBalanceFactor() == -1 {
-					root.left = root.left.rotateLeft()
-					root = root.rotateRight()
-				}
-			}
-
-			if balanceFactor == -2 {
-				// Right-Right ==> Left Rotation
-				if root.right.getBalanceFactor() == -1 || root.right.getBalanceFactor() == 0 {
-					root = root.rotateLeft()
-				}
-
-				// Right-Left ==> Right Rotation followed by Left Rotation
-				if root.right.getBalanceFactor() == 1 {
-					root.right = root.right.rotateRight()
-					root = root.rotateLeft()
-				}
-			}
+			// Balance if required
+			root = root.balance()
 
 			return root
 		}
@@ -104,41 +71,8 @@ func (root *Node) deleteAVL(key string) *Node {
 		1 + max(root.left.getHeight(), root.right.getHeight()),
 	)
 
-	// rebalance
-	balanceFactor := root.getBalanceFactor()
-
-	// Conditions under which balanceFactor itself would not lead to a balancing operation:
-	//  -1 =< bf <= 1
-	if -1 <= balanceFactor && balanceFactor <= 1 {
-		return root
-	}
-
-	// TODO: Optimize this
-	if balanceFactor == 2 {
-		// Left-Left ==> Right Rotation
-		if root.left.getBalanceFactor() == 1 || root.left.getBalanceFactor() == 0 {
-			root = root.rotateRight()
-		}
-
-		// Left-right ==> Left Rotation followed by Right Rotation
-		if root.left.getBalanceFactor() == -1 {
-			root.left = root.left.rotateLeft()
-			root = root.rotateRight()
-		}
-	}
-
-	if balanceFactor == -2 {
-		// Right-Right ==> Left Rotation
-		if root.right.getBalanceFactor() == -1 || root.right.getBalanceFactor() == 0 {
-			root = root.rotateLeft()
-		}
-
-		// Right-Left ==> Right Rotation followed by Left Rotation
-		if root.right.getBalanceFactor() == 1 {
-			root.right = root.right.rotateRight()
-			root = root.rotateLeft()
-		}
-	}
+	// Balance if required
+	root = root.balance()
 
 	return root
 
@@ -176,12 +110,40 @@ func (root *Node) insertAVL(key string, data any) *Node {
 		root.right = root.right.insertAVL(key, data)
 	}
 
-	// TODO Optimize
 	// Update height
 	root.height.Store(
 		1 + max(root.left.getHeight(), root.right.getHeight()),
 	)
 
+	// Balance if required
+	root = root.balance()
+
+	return root
+}
+
+func findAndRemoveMinimum(root *Node) *Node {
+	if root.left != nil {
+		successorNode := findAndRemoveMinimum(root.left)
+
+		// Delete the successor node
+		if successorNode.key == root.left.key {
+			root.left = nil
+		}
+
+		// Update the node's height
+		root.height.Store(
+			1 + max(root.left.getHeight(), root.right.getHeight()),
+		)
+
+		// TODO: rebalancing is not required because ...
+
+		return successorNode
+	}
+
+	return root
+}
+
+func (root *Node) balance() *Node {
 	balanceFactor := root.getBalanceFactor()
 
 	// Conditions under which balanceFactor itself would not lead to a balancing operation:
@@ -215,28 +177,6 @@ func (root *Node) insertAVL(key string, data any) *Node {
 			root.right = root.right.rotateRight()
 			root = root.rotateLeft()
 		}
-	}
-
-	return root
-}
-
-func findAndRemoveMinimum(root *Node) *Node {
-	if root.left != nil {
-		successorNode := findAndRemoveMinimum(root.left)
-
-		// Delete the successor node
-		if successorNode.key == root.left.key {
-			root.left = nil
-		}
-
-		// Update the node's height
-		root.height.Store(
-			1 + max(root.left.getHeight(), root.right.getHeight()),
-		)
-
-		// TODO: rebalancing is not required because ...
-
-		return successorNode
 	}
 
 	return root
