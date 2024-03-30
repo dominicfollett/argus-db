@@ -54,11 +54,6 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 		for message := range db.avlChannel {
 			db.avlLock.Lock()
 
-			// if action == "delete" {
-			// 	db.avl.Delete(message.key)
-			// } else {
-			// 	db.avl.Insert(message.key, message.data)
-			// }
 			db.avl.Insert(message.key, message.data)
 
 			// TODO: consider running a function that removes records that are obsolete
