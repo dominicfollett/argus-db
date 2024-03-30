@@ -191,9 +191,9 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	}()
 
 	// Profiling
-	go func() {
-		http.ListenAndServe(":6060", nil)
-	}()
+	// go func() {
+	//	http.ListenAndServe(":6060", nil)
+	// }()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
