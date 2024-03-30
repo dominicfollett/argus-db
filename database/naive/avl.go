@@ -16,6 +16,29 @@ func NewAVL() *AVL {
 	return &AVL{}
 }
 
+// TODO can we use *[]string instead
+func (tree *AVL) Survey(evict func(data any) bool) []string {
+	return tree.root.surveyAVL(evict, []string{})
+}
+
+// surveyAVL traverses the tree in an in-order manner (descending order) and collects the keys
+// that return true when applying the user-defined evict function on the node's data.
+func (node *Node) surveyAVL(evict func(data any) bool, keys []string) []string {
+	if node == nil {
+		return keys
+	}
+
+	keys = node.left.surveyAVL(evict, keys)
+
+	if evict(node.data) {
+		keys = append(keys, node.key)
+	}
+
+	keys = node.right.surveyAVL(evict, keys)
+
+	return keys
+}
+
 // GetKeys retrieves all keys from the AVL tree in sorted descending order.
 func (tree *AVL) GetKeys() []string {
 	keys := tree.root.inorderDesc([]string{})

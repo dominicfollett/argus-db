@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 )
 
-var BF_THRESHOLD int32 = 5
+var BF_THRESHOLD int32 = 2
 
 // BST represents a BST tree with a pointer to the root node.
 type BST struct {

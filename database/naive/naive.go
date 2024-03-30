@@ -8,12 +8,13 @@ import (
 	"time"
 )
 
-var TRIGGER_THRESHOLD float64 = 30
+var TRIGGER_THRESHOLD float64 = 50
 
 type NaiveDB struct {
 	bst         *BST
 	avl         *AVL
 	callback    func(data any, params any) (any, any, error)
+	evict       func(data any) bool
 	avlChannel  chan Message
 	rwLock      *sync.RWMutex
 	avlLock     *sync.Mutex
@@ -23,7 +24,11 @@ type NaiveDB struct {
 	logger      *slog.Logger
 }
 
-func NewDB(callback func(data any, params any) (any, any, error), logger *slog.Logger) *NaiveDB {
+func NewDB(
+	callback func(data any, params any) (any, any, error),
+	evict func(data any) bool,
+	logger *slog.Logger) *NaiveDB {
+
 	logger.Info("initializing naive DB...")
 
 	totalOps := atomic.Int64{}
@@ -35,6 +40,7 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 		bst:         NewBST(),
 		avl:         NewAVL(),
 		callback:    callback,
+		evict:       evict,
 		avlChannel:  make(chan Message),
 		avlLock:     &sync.Mutex{},
 		rwLock:      &sync.RWMutex{},
@@ -56,7 +62,12 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 
 			db.avl.Insert(message.key, message.data)
 
-			// TODO: consider running a function that removes records that are obsolete
+			// Run eviction job
+			keys := db.avl.Survey(db.evict)
+			for _, key := range keys {
+				db.avl.Delete(key)
+			}
+
 			db.avlLock.Unlock()
 		}
 		db.logger.Info("Channel closed. Exiting AVL goroutine.")
@@ -76,11 +87,20 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 			default:
 				triggerMetric := float64(db.bst.balanceFactorSum.Load()) / float64(db.totalOps.Load())
 
-				if triggerMetric > TRIGGER_THRESHOLD {
+				if triggerMetric > TRIGGER_THRESHOLD /* || time threshold reached? || size(avl) << size(bst)? */ {
 					db.logger.Debug("switchover routine, threshold exceeded", "trigger metric", triggerMetric)
 
 					// Obtain the r/w lock to pause calculations
 					db.rwLock.Lock()
+
+					// Wait for the AVL routine channel to be empty.
+					// TODO: I am really in two minds about this
+					for len(db.avlChannel) > 0 {
+						time.Sleep(
+							// This is a bit to arbitary for my liking
+							time.Duration(len(db.avlChannel)) * 1000 * time.Nanosecond,
+						)
+					}
 
 					// Obtain the avl lock to pause avl inserts
 					db.avlLock.Lock()
@@ -108,7 +128,7 @@ func NewDB(callback func(data any, params any) (any, any, error), logger *slog.L
 					// Release the avl lock
 					db.avlLock.Unlock()
 
-					db.logger.Info("switchover routine, naive db locks released")
+					db.logger.Debug("switchover routine, naive db locks released")
 				}
 			}
 

@@ -19,8 +19,8 @@ of the switchover go routine that handle tree swapping.
 
 ## Todos
 
+- [DONE] Add a function to periodically remove stale records
 - The metric used for triggering a tree swap is pretty dubious, so that needs a rethink
-- Add a function to periodically remove stale records
 - Perform profiling and implement optimizations (e.g. custom json decoding among others) 
 - Implement an alternate DB engine using perhaps a thread-safe hash table.
 - And lastly, there's a bit of cleanup/refactoring needed
@@ -28,6 +28,18 @@ of the switchover go routine that handle tree swapping.
 ## Performance Benchmarks
 
 I used Jmeter to exercise Argus on an 8-core, 16G Macbook. There's no connection sharing/reuse among threads in Jmeter.
+The request body:
+
+```json
+{
+    "key": "${__RandomString(20,abcdefghijklmnopqrstuvwxyz,)}",
+    "capacity": 1000,
+    "interval": 60,
+    "unit": "s"
+}
+```
+uses a random string for each request. This obviously affects the lifetime of each record,
+leading to early evictions during the running of these tests and affecting.
 
 ### Test 1
 10 Threads, 50 000 Iterations GOMAXPROCS=8 No Connection Pooling
@@ -40,7 +52,8 @@ I used Jmeter to exercise Argus on an 8-core, 16G Macbook. There's no connection
 <p align="center">
     <img src="perf2.png" alt="Perf test 2" width="100%">
 </p>
-Memory usage peaked at 1.6G
+After introducing a function to remove stale records memory usage is hovering at around 3.2 Mb. Obviously
+this is influenced by the early record evictions in this suite of tests. 
 
 ## Example Usage
 ```sh

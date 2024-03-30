@@ -14,13 +14,14 @@ type Database interface {
 func NewDatabase(
 	engine string,
 	callback func(data any, params any) (any, any, error),
+	evict func(data any) bool,
 	logger *slog.Logger,
 ) Database {
 
 	switch engine {
 	case "naive":
-		return naive.NewDB(callback, logger)
+		return naive.NewDB(callback, evict, logger)
 	default:
-		return naive.NewDB(callback, logger)
+		return naive.NewDB(callback, evict, logger)
 	}
 }
