@@ -8,7 +8,7 @@ import (
 
 // AVL represents an AVL tree with a pointer to the root node.
 type AVL struct {
-	root *Node // Root points to the root node of the AVL tree.
+	root *Node
 }
 
 // NewAVL creates and returns a new instance of an AVL tree.
@@ -22,10 +22,13 @@ func (tree *AVL) GetKeys() []string {
 	return keys
 }
 
+// Delete removes a node from the AVL tree with the given key
 func (tree *AVL) Delete(key string) {
 	tree.root = tree.root.deleteAVL(key)
 }
 
+// deleteAVL searches for the the node to delete, removes it from the tree
+// while maintaining height invariance through rebalancing operations.
 func (root *Node) deleteAVL(key string) *Node {
 	if root == nil {
 		return nil
@@ -121,6 +124,9 @@ func (root *Node) insertAVL(key string, data any) *Node {
 	return root
 }
 
+// findAndRemoveMinimum finds the minimum node from the given root,
+// removes it from the tree, and updates the height of each node
+// back to the root.
 func findAndRemoveMinimum(root *Node) *Node {
 	if root.left != nil {
 		successorNode := findAndRemoveMinimum(root.left)
@@ -143,6 +149,8 @@ func findAndRemoveMinimum(root *Node) *Node {
 	return root
 }
 
+// balance calculates the node balance factor and applies
+// balacing operations if required.
 func (root *Node) balance() *Node {
 	balanceFactor := root.getBalanceFactor()
 
