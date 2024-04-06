@@ -35,7 +35,7 @@ func TestService(t *testing.T) {
 	// Start the server in a separate goroutine
 	go func() {
 		if err := run(ctx, getenv, out); err != nil {
-			t.Errorf("Error running server: %v", err)
+			t.Errorf("Error starting server: %v", err)
 		}
 	}()
 
@@ -75,7 +75,6 @@ func TestService(t *testing.T) {
 			defer wg.Done()
 
 			for j := 0; j < numRequestsPerThread; j++ {
-
 				// Create a test request payload
 				payload := limitArgs{
 					Key:      fmt.Sprint("test_key_", threadID*numRequestsPerThread+j),
@@ -86,7 +85,7 @@ func TestService(t *testing.T) {
 
 				jsonPayload, _ := json.Marshal(payload)
 
-				req, _ := http.NewRequest("POST", "http://localhost:8124/api/v1/limit", bytes.NewBuffer(jsonPayload))
+				req, _ := http.NewRequest(http.MethodPost, "http://localhost:8124/api/v1/limit", bytes.NewBuffer(jsonPayload))
 				req.Header.Set("Content-Type", "application/json")
 
 				resp, err := client.Do(req)
