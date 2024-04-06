@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -178,9 +177,7 @@ func NewServer(logger *slog.Logger, s *service.Service) http.Handler {
 	return mux
 }
 
-func run(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
-	var err error
-
+func run(ctx context.Context, getenv func(string) string, stdout io.Writer) {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 
@@ -201,7 +198,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 
 	go func() {
 		logger.Info("server is listening on " + httpServer.Addr)
-		if err = httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("could not listen on:", "address", httpServer.Addr, "error", err)
 		}
 	}()
@@ -227,7 +224,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		defer shutdownCancel()
 
 		logger.Info("shutting down http server")
-		if err = httpServer.Shutdown(shutdownCtx); err != nil {
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			logger.Error("error shutting down http server", "error", err)
 		}
 
@@ -235,14 +232,15 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		s.Shutdown()
 	}()
 	wg.Wait()
-
-	return err
 }
 
 func main() {
 	ctx := context.Background()
-	if err := run(ctx, os.Getenv, os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
+	run(ctx, os.Getenv, os.Stdout)
+
+	// And this?
+	// if err := run(ctx, os.Getenv, os.Stdout); err != nil {
+	// 	fmt.Fprintf(os.Stderr, "%s\n", err)
+	//	os.Exit(1)
+	// }
 }

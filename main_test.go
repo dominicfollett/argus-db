@@ -34,9 +34,7 @@ func TestService(t *testing.T) {
 
 	// Start the server in a separate goroutine
 	go func() {
-		if err := run(ctx, getenv, out); err != nil {
-			t.Errorf("Error starting server: %v", err)
-		}
+		run(ctx, getenv, out)
 	}()
 
 	// Wait for the server to start
