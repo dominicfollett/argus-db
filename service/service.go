@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -34,21 +34,28 @@ func min(a int64, b int64) int64 {
 	return b
 }
 
-// evict is a function passed to the database layer
-// that determines when a node should be evicted based
-// on the data stored at that node.
+// evict is a function passed to the database layer that determines when a node should be evicted
+// based on the data stored at that node.
 func evict(data any) bool {
-	d := data.(*Data)
+	d, ok := data.(*Data)
+
+	// Ideally we should log the fact that we can't cast the data
+	if !ok {
+		return false
+	}
 
 	delta := time.Since(d.expiresAt)
 
 	return delta >= 0
 }
 
-// callback is the function that is passed to the database layer
-// which is invoked on each insert to the DB
+// callback is the function that is passed to the database layer which is invoked on each insert to
+// the DB.
 func callback(data any, params any) (any, any, error) {
-	p := params.(*Params)
+	p, ok := params.(*Params)
+	if !ok {
+		return data, nil, errors.New("could not cast params")
+	}
 
 	var d *Data
 	if data == nil {
@@ -57,7 +64,10 @@ func callback(data any, params any) (any, any, error) {
 			lastRefilled:    time.Now(),
 		}
 	} else {
-		d = data.(*Data)
+		d, ok = data.(*Data)
+		if !ok {
+			return data, nil, errors.New("could not cast data")
+		}
 	}
 
 	refillRate := float64(p.capacity) / float64(p.interval)
@@ -89,8 +99,7 @@ func callback(data any, params any) (any, any, error) {
 		d.availableTokens--
 	}
 
-	// If its 1000 tokens every 60 seconds
-	// refillRate = 1000 / 60 == 16.666.. tokens/s
+	// If its 1000 tokens every 60 seconds: refillRate = 1000 / 60 == 16.666.. tokens/s
 	// replenish / refillRate == duration needed to replenish
 	replenish := p.capacity - d.availableTokens
 	duration := time.Duration(float64(replenish)/refillRate) * unit
@@ -106,7 +115,6 @@ func (s *Service) Shutdown() {
 }
 
 func NewLimiterService(engine string, logger *slog.Logger) *Service {
-
 	return &Service{
 		database: database.NewDatabase(engine, callback, evict, logger),
 		logger:   logger,
@@ -116,7 +124,7 @@ func NewLimiterService(engine string, logger *slog.Logger) *Service {
 func (s *Service) Limit(ctx context.Context, key string, capacity int64, interval int32, unit string) (string, error) {
 	select {
 	case <-ctx.Done():
-		return "", fmt.Errorf("request canceled")
+		return "", errors.New("request canceled")
 	default:
 		result, err := s.database.Calculate(key, &Params{capacity, interval, unit})
 

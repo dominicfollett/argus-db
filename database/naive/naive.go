@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-var TRIGGER_THRESHOLD float64 = 50
+const TriggerThreshold float64 = 50
 
-type NaiveDB struct {
+type DB struct {
 	bst         *BST
 	avl         *AVL
 	callback    func(data any, params any) (any, any, error)
@@ -27,8 +27,7 @@ type NaiveDB struct {
 func NewDB(
 	callback func(data any, params any) (any, any, error),
 	evict func(data any) bool,
-	logger *slog.Logger) *NaiveDB {
-
+	logger *slog.Logger) *DB {
 	logger.Info("initializing naive DB...")
 
 	totalOps := atomic.Int64{}
@@ -36,7 +35,7 @@ func NewDB(
 
 	context, cancel := context.WithCancel(context.Background())
 
-	db := &NaiveDB{
+	db := &DB{
 		bst:         NewBST(),
 		avl:         NewAVL(),
 		callback:    callback,
@@ -87,7 +86,7 @@ func NewDB(
 			default:
 				triggerMetric := float64(db.bst.balanceFactorSum.Load()) / float64(db.totalOps.Load())
 
-				if triggerMetric > TRIGGER_THRESHOLD /* || time threshold reached? || size(avl) << size(bst)? */ {
+				if triggerMetric > TriggerThreshold /* || time threshold reached? || size(avl) << size(bst)? */ {
 					db.logger.Debug("switchover routine, threshold exceeded", "trigger metric", triggerMetric)
 
 					// Obtain the r/w lock to pause calculations
@@ -139,9 +138,9 @@ func NewDB(
 	return db
 }
 
-// Shutdown closes the AVL channel to stop the AVL goroutine
-// it calls the cancel function 'stopRoutine' to tell the switchover routine to exit
-func (db *NaiveDB) Shutdown() {
+// Shutdown closes the AVL channel to stop the AVL goroutine it calls the cancel function
+// 'stopRoutine' to tell the switchover routine to exit.
+func (db *DB) Shutdown() {
 	// Wait until everyone has released the r/w lock / finished their operations
 	db.rwLock.Lock()
 	defer db.rwLock.Unlock()
@@ -158,7 +157,7 @@ func (db *NaiveDB) Shutdown() {
 	db.logger.Info("naive db shutdown complete")
 }
 
-func (db *NaiveDB) Calculate(key string, params any) (any, error) {
+func (db *DB) Calculate(key string, params any) (any, error) {
 	db.rwLock.RLock()
 	// We must absolutely unlock the r/w lock before we return
 	defer db.rwLock.RUnlock()

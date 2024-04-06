@@ -1,3 +1,4 @@
+//nolint:testpackage // Allow tests to access the naive package
 package naive
 
 import (
@@ -49,8 +50,10 @@ func TestInsertBST(t *testing.T) {
 }
 
 func TestInsertBSTWithRandomKeys(t *testing.T) {
-
-	keys := []string{"T", "X", "G", "L", "E", "Q", "M", "H", "O", "I", "B", "Z", "A", "V", "S", "R", "K", "P", "C", "D", "U", "F", "N", "W", "Y", "J"}
+	keys := []string{
+		"T", "X", "G", "L", "E", "Q", "M", "H", "O", "I", "B", "Z", "A", "V", "S",
+		"R", "K", "P", "C", "D", "U", "F", "N", "W", "Y", "J",
+	}
 	rand.Shuffle(len(keys), func(i, j int) { keys[i], keys[j] = keys[j], keys[i] })
 
 	bst := NewBST()
@@ -79,7 +82,7 @@ func TestInsertBSTWithRandomKeys(t *testing.T) {
 	}
 
 	for i, expectedKey := range keys {
-		if expectedKey != string(result[i]) {
+		if expectedKey != result[i] {
 			t.Errorf("Key mismatch at index %d; expected: %s, got: %s", i, expectedKey, result[i])
 		}
 	}
@@ -114,7 +117,7 @@ func (node *Node) heightTestHelper(t *testing.T, count int) (int32, int) {
 			leftHeight,
 			rightHeight,
 		)
-		count += 1
+		count++
 	}
 
 	return expectedHeight, count

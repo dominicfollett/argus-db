@@ -1,3 +1,4 @@
+//nolint:testpackage // Allow tests to access the naive package
 package naive
 
 import (
@@ -5,6 +6,7 @@ import (
 	"testing"
 )
 
+//nolint:stylecheck // Allow helper function name
 func (node *Node) avlHeightTestHelper(t *testing.T) int32 {
 	if node == nil {
 		if node.getHeight() != -1 {
@@ -40,8 +42,10 @@ func (node *Node) avlHeightTestHelper(t *testing.T) int32 {
 }
 
 func TestAVL(t *testing.T) {
-
-	keys := []string{"T", "X", "G", "L", "E", "Q", "M", "H", "O", "I", "B", "Z", "A", "V", "S", "R", "K", "P", "C", "D", "U", "F", "N", "W", "Y", "J"}
+	keys := []string{
+		"T", "X", "G", "L", "E", "Q", "M", "H", "O", "I", "B", "Z", "A", "V", "S", "R", "K", "P",
+		"C", "D", "U", "F", "N", "W", "Y", "J",
+	}
 	avl := NewAVL()
 
 	for _, k := range keys {
@@ -62,7 +66,7 @@ func TestAVL(t *testing.T) {
 	}
 
 	for i, expectedKey := range keys {
-		if expectedKey != string(result[i]) {
+		if expectedKey != result[i] {
 			t.Errorf("Key mismatch at index %d; expected: %s, got: %s", i, expectedKey, result[i])
 		}
 	}

@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 )
 
-var BF_THRESHOLD int32 = 2
+const BfThreshold int32 = 2
 
 // BST represents a BST tree with a pointer to the root node.
 type BST struct {
@@ -77,7 +77,6 @@ func (node *Node) searchBST(parentLock *sync.Mutex, key string) *Node {
 
 // updateHeight atomically updates the height of the node based on the height of its left and right children.
 func (node *Node) updateHeight(leftHeight int32, rightHeight int32) {
-
 	oldHeight := node.getHeight()
 	newHeight := 1 + max(leftHeight, rightHeight)
 
@@ -104,7 +103,6 @@ func newBSTNode(key string) *Node {
 // Insert adds a new node with the given key and data to the BST tree.
 // This function is thread-safe.
 func (tree *BST) Insert(key string) {
-
 	tree.rootLock.Lock()
 
 	if tree.root == nil {
@@ -121,7 +119,6 @@ func (tree *BST) Insert(key string) {
 // This function is thread-safe and uses hand-over-hand locking to ensure that the tree is properly
 // locked during the insertion process.
 func (node *Node) insertBST(parentLock *sync.Mutex, key string) int32 {
-
 	// Try and obtain this node's lock
 	node.lock.Lock()
 
@@ -150,12 +147,11 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string) int32 {
 			// We have to release the lock on this node because we're done with it
 			node.lock.Unlock()
 			return node.getHeight()
-		} else {
-			rightHeight = node.right.getHeight()
-
-			// node.lock will be released in the recursive call
-			leftHeight = node.left.insertBST(&node.lock, key)
 		}
+		rightHeight = node.right.getHeight()
+
+		// node.lock will be released in the recursive call
+		leftHeight = node.left.insertBST(&node.lock, key)
 	}
 
 	if key > node.key {
@@ -168,12 +164,11 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string) int32 {
 			// We have to release the lock on this node because we're done with it
 			node.lock.Unlock()
 			return node.getHeight()
-		} else {
-			leftHeight = node.left.getHeight()
-
-			// node.lock will be released in the recursive call
-			rightHeight = node.right.insertBST(&node.lock, key)
 		}
+		leftHeight = node.left.getHeight()
+
+		// node.lock will be released in the recursive call
+		rightHeight = node.right.insertBST(&node.lock, key)
 	}
 
 	node.updateHeight(leftHeight, rightHeight)
@@ -185,7 +180,6 @@ func (node *Node) insertBST(parentLock *sync.Mutex, key string) int32 {
 // locked during the search process. However, users of this function MUST release the lock on the
 // returned node after they are done with it.
 func (tree *BST) InSearch(key string) *Node {
-
 	tree.rootLock.Lock()
 
 	if tree.root == nil {
@@ -205,11 +199,10 @@ func (tree *BST) InSearch(key string) *Node {
 	return node
 }
 
-// inSearchBST retrieves the node with the given key from the BST tree. If the node does not exist, it creates a new node.
-// This function is thread-safe and uses hand-over-hand locking to ensure that the tree is properly
-// locked during the search process.
+// inSearchBST retrieves the node with the given key from the BST tree. If the node does not exist,
+// it creates a new node. This function is thread-safe and uses hand-over-hand locking to ensure
+// that the tree is properly locked during the search process.
 func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node, int32) {
-
 	// Try and obtain this node's lock
 	node.lock.Lock()
 
@@ -222,7 +215,7 @@ func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node,
 
 		// Calculate and add the balance factor
 		balanceFactor := absInt32(node.left.getHeight() - node.right.getHeight())
-		if balanceFactor < BF_THRESHOLD {
+		if balanceFactor < BfThreshold {
 			balanceFactor = 0
 		}
 
@@ -246,12 +239,11 @@ func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node,
 			// We have to release the lock on this node because we're done with it
 			node.lock.Unlock()
 			return node.getHeight(), node.left, 0
-		} else {
-			rightHeight = node.right.getHeight()
-
-			// node.lock will be released in the recursive call
-			leftHeight, returnedNode, balanceFactor = node.left.inSearchBST(&node.lock, key)
 		}
+		rightHeight = node.right.getHeight()
+
+		// node.lock will be released in the recursive call
+		leftHeight, returnedNode, balanceFactor = node.left.inSearchBST(&node.lock, key)
 	}
 
 	if key > node.key {
@@ -266,19 +258,18 @@ func (node *Node) inSearchBST(parentLock *sync.Mutex, key string) (int32, *Node,
 			// We have to release the lock on this node because we're done with it
 			node.lock.Unlock()
 			return node.getHeight(), node.right, 0
-		} else {
-			leftHeight = node.left.getHeight()
-
-			// node.lock will be released in the recursive call
-			rightHeight, returnedNode, balanceFactor = node.right.inSearchBST(&node.lock, key)
 		}
+		leftHeight = node.left.getHeight()
+
+		// node.lock will be released in the recursive call
+		rightHeight, returnedNode, balanceFactor = node.right.inSearchBST(&node.lock, key)
 	}
 
 	node.updateHeight(leftHeight, rightHeight)
 
 	// Calculate balance factor
 	balanceFactorPrime := absInt32(leftHeight - rightHeight)
-	if balanceFactorPrime < BF_THRESHOLD {
+	if balanceFactorPrime < BfThreshold {
 		balanceFactorPrime = 0
 	}
 
