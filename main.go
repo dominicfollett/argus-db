@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
+
+	// _ "net/http/pprof".
 	"os"
 	"os/signal"
 	"sync"
@@ -17,6 +18,15 @@ import (
 	"github.com/dominicfollett/argus-db/service"
 )
 
+// http.Server Timeouts.
+const ReadTimeout = 500 * time.Millisecond
+const ReadHeaderTimeout = 500 * time.Millisecond
+const IdleTimeout = 2 * time.Second // TODO: tune this.
+
+// Server Shutdown timeout.
+const ShutdownTimeout = 10 * time.Second
+
+// Keep it simple - we don't need more than this.
 type Config struct {
 	Host     string
 	Port     string
@@ -24,14 +34,14 @@ type Config struct {
 	Engine   string
 }
 
-var levelMap = map[string]slog.Level{
-	"debug": slog.LevelDebug,
-	"info":  slog.LevelInfo,
-	"warn":  slog.LevelWarn,
-	"error": slog.LevelError,
-}
-
+// Keep it simple.
 func loadConfig(getenv func(string) string) *Config {
+	levelMap := map[string]slog.Level{
+		"debug": slog.LevelDebug,
+		"info":  slog.LevelInfo,
+		"warn":  slog.LevelWarn,
+		"error": slog.LevelError,
+	}
 
 	config := &Config{
 		Host:     "0.0.0.0",
@@ -55,7 +65,7 @@ func loadConfig(getenv func(string) string) *Config {
 	return config
 }
 
-func healthHandler() http.Handler {
+func healthHandler(logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodGet {
@@ -64,7 +74,10 @@ func healthHandler() http.Handler {
 			}
 
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
+			_, err := w.Write([]byte("OK"))
+			if err != nil {
+				logger.Error("[healthHandler] error writing response", "error", err)
+			}
 		},
 	)
 }
@@ -98,14 +111,22 @@ func limitHandler(logger *slog.Logger, s *service.Service) http.Handler {
 				if err != nil {
 					logger.Error("error reading request body", "error", err)
 					w.WriteHeader(http.StatusBadRequest)
-					w.Write([]byte("error reading request body"))
+
+					_, err = w.Write([]byte("error reading request body"))
+					if err != nil {
+						logger.Error("[limitHandler] error writing response", "error", err)
+					}
 					return
 				}
 
 				if err = json.Unmarshal(buffer, &args); err != nil {
 					logger.Error("error decoding request body", "error", err)
 					w.WriteHeader(http.StatusBadRequest)
-					w.Write([]byte("error decoding request body"))
+
+					_, err = w.Write([]byte("error decoding request body"))
+					if err != nil {
+						logger.Error("[limitHandler] error writing response", "error", err)
+					}
 					return
 				}
 				// duration := time.Since(start)
@@ -117,16 +138,19 @@ func limitHandler(logger *slog.Logger, s *service.Service) http.Handler {
 					if err.Error() == "request canceled" {
 						logger.Info("request canceled")
 						return
-					} else {
-						logger.Error("error calling limiter service: %v", err)
-						w.WriteHeader(http.StatusInternalServerError)
-						return
 					}
+
+					logger.Error("error calling limiter service: %v", err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
 				}
 
 				// Write the result
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(result))
+				_, err = w.Write([]byte(result))
+				if err != nil {
+					logger.Error("[limitHandler] error writing response", "error", err)
+				}
 			}
 		},
 	)
@@ -147,13 +171,13 @@ func loggingMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
 func NewServer(logger *slog.Logger, s *service.Service) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle("/api/v1/health", loggingMiddleware(logger, healthHandler()))
+	mux.Handle("/api/v1/health", loggingMiddleware(logger, healthHandler(logger)))
 	mux.Handle("/api/v1/limit", limitHandler(logger, s))
 
 	return mux
 }
 
-func run(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
+func run(ctx context.Context, getenv func(string) string, stdout io.Writer) {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 
@@ -167,14 +191,14 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	httpServer := &http.Server{
 		Addr:              net.JoinHostPort(config.Host, config.Port),
 		Handler:           http.TimeoutHandler(server, 1*time.Second, "timeout\n"),
-		ReadTimeout:       500 * time.Millisecond,
-		ReadHeaderTimeout: 500 * time.Millisecond,
-		IdleTimeout:       2 * time.Second, // TODO: tune
+		ReadTimeout:       ReadTimeout,
+		ReadHeaderTimeout: ReadHeaderTimeout,
+		IdleTimeout:       IdleTimeout,
 	}
 
 	go func() {
 		logger.Info("server is listening on " + httpServer.Addr)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("could not listen on:", "address", httpServer.Addr, "error", err)
 		}
 	}()
@@ -194,10 +218,10 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		<-ctx.Done()
 
 		// Make a new context for the Shutdown because the parent context has already been canceled
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ShutdownTimeout)
 
 		// Don't forget to call cancel to release resources associated with the shutdownCtx
-		defer cancel()
+		defer shutdownCancel()
 
 		logger.Info("shutting down http server")
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
@@ -208,14 +232,15 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		s.Shutdown()
 	}()
 	wg.Wait()
-
-	return nil
 }
 
 func main() {
 	ctx := context.Background()
-	if err := run(ctx, os.Getenv, os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
+	run(ctx, os.Getenv, os.Stdout)
+
+	// And this?
+	// if err := run(ctx, os.Getenv, os.Stdout); err != nil {
+	// 	fmt.Fprintf(os.Stderr, "%s\n", err)
+	//	os.Exit(1)
+	// }
 }

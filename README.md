@@ -22,6 +22,7 @@ of the switchover go routine that handle tree swapping.
 - [DONE] Add a function to periodically remove stale records
 - The metric used for triggering a tree swap is pretty dubious, so that needs a rethink
 - Perform profiling and implement optimizations (e.g. custom json decoding among others) 
+- - go tool pprof -http=:8000 'http://localhost:6060/debug/pprof/profile?seconds=60'
 - Implement an alternate DB engine using perhaps a thread-safe hash table.
 - And lastly, there's a bit of cleanup/refactoring needed
 

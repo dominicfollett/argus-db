@@ -5,4 +5,4 @@ services:
     ports:
       - "8123:8123"
     cpus: 8
-    mem_limit: 4g
+    mem_limit: 1g
