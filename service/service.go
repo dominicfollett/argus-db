@@ -9,7 +9,7 @@ import (
 	"github.com/dominicfollett/argus-db/database"
 )
 
-// Shared Data structure stores the Token Bucket particulars
+// Shared Data structure stores the Token Bucket particulars.
 type Data struct {
 	availableTokens int64
 	lastRefilled    time.Time // Should this rather be a unix timestamp as int64?
